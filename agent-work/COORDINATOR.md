@@ -127,8 +127,8 @@ deployment stage advances.
 ## Deployment stages (v3 only)
 
 Only use these stages when `[deployment]` is declared. The generic manifest
-names the project-specific authority remote/ref; for this repository, Forgejo
-is the deployment authority under `AGENTS.md`.
+names the project-specific authority remote/ref. The adopting repository
+defines its deployment authority under `AGENTS.md`.
 
 1. If `authority_promotion` is configured, verify current refs and promote only
    the exact reviewed source by non-force Git operations before readiness.
