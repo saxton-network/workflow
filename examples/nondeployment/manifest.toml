@@ -1,0 +1,53 @@
+workflow_version = 3
+phase = "example-nondeployment"
+title = "Example repository-only workflow"
+phase_baseline = "1111111111111111111111111111111111111111"
+plan = "agent-work/example-nondeployment/PLAN.md"
+
+[workflow]
+mode = "coordinator"
+plan_status = "approved"
+coordinator = "agent-work/COORDINATOR.md"
+auto_dispatch = true
+max_parallel_subagents = 1
+evidence_manifest = "agent-work/example-nondeployment/evidence.json"
+terminal_task = "D"
+
+[status]
+A = "pending"
+B = "blocked"
+C = "conditional"
+D = "blocked"
+
+[tasks.A]
+kind = "implementation"
+name = "Implement approved change"
+file = "agent-work/example-nondeployment/A-implementation.md"
+branch = "agent/example-nondeployment"
+depends_on = []
+
+[tasks.B]
+kind = "independent_review"
+name = "Review exact implementation candidate"
+file = "agent-work/example-nondeployment/B-review.md"
+branch = "review/example-nondeployment"
+depends_on = ["A"]
+required_status = { A = "complete" }
+rerun_after = "C"
+
+[tasks.C]
+kind = "repair"
+name = "Repair review findings"
+file = "agent-work/example-nondeployment/C-repair.md"
+branch = "fix/example-nondeployment"
+depends_on = ["B"]
+required_status = { B = "findings" }
+conditional = "review_findings_exist"
+
+[tasks.D]
+kind = "integration"
+name = "Integrate reviewed repository change"
+file = "agent-work/example-nondeployment/D-integration.md"
+branch = "integration/example-nondeployment"
+depends_on = ["B"]
+required_status = { B = "passed" }
