@@ -1,0 +1,80 @@
+workflow_version = 3
+phase = "example-deployment"
+title = "Example deployment workflow"
+phase_baseline = "1111111111111111111111111111111111111111"
+plan = "agent-work/example-deployment/PLAN.md"
+
+[workflow]
+mode = "coordinator"
+plan_status = "approved"
+coordinator = "agent-work/COORDINATOR.md"
+auto_dispatch = true
+max_parallel_subagents = 1
+evidence_manifest = "agent-work/example-deployment/evidence.json"
+human_gate_tasks = ["J"]
+terminal_task = "K"
+
+[status]
+A = "pending"
+H = "blocked"
+I = "conditional"
+R = "blocked"
+J = "blocked"
+K = "blocked"
+
+[tasks.A]
+kind = "implementation"
+name = "Produce deployment candidate"
+file = "agent-work/example-deployment/A-implementation.md"
+branch = "agent/example-deployment"
+depends_on = []
+
+[tasks.H]
+kind = "independent_review"
+name = "Review deployment candidate"
+file = "agent-work/example-deployment/H-review.md"
+branch = "review/example-deployment"
+depends_on = ["A"]
+required_status = { A = "complete" }
+rerun_after = "I"
+
+[tasks.I]
+kind = "repair"
+name = "Repair review findings"
+file = "agent-work/example-deployment/I-repair.md"
+branch = "fix/example-deployment"
+depends_on = ["H"]
+required_status = { H = "findings" }
+conditional = "review_findings_exist"
+
+[tasks.R]
+kind = "release_readiness"
+name = "Prove release readiness"
+file = "agent-work/example-deployment/R-readiness.md"
+branch = "readiness/example-deployment"
+depends_on = ["H"]
+required_status = { H = "passed" }
+
+[tasks.J]
+kind = "live_deployment"
+name = "Execute approved live batch"
+file = "agent-work/example-deployment/J-live.md"
+branch = "deploy/example-deployment"
+depends_on = ["R"]
+human_gate = "live-change-approval"
+
+[tasks.K]
+kind = "final_reconciliation"
+name = "Reconcile accepted deployment"
+file = "agent-work/example-deployment/K-reconcile.md"
+branch = "main"
+depends_on = ["J"]
+
+[deployment]
+implementation_tasks = ["A"]
+review_task = "H"
+authority_remote = "origin"
+authority_ref = "refs/heads/main"
+readiness_task = "R"
+live_task = "J"
+final_reconciliation_task = "K"
