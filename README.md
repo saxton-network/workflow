@@ -64,7 +64,7 @@ python3 scripts/agent-task.py <workflow-id> --ready
 5. Run the repository gate:
 
 ~~~bash
-scripts/validate-repository.sh
+bash scripts/validate-repository.sh
 ~~~
 
 6. Let the coordinator advance only through evidence-backed ready tasks.
