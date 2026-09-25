@@ -38,6 +38,7 @@ agent-work/
 docs/
   DESIGN.md
   PILOT-HISTORY.md
+  RELEASING.md
 examples/
   README.md
   nondeployment/manifest.toml
@@ -46,7 +47,9 @@ scripts/
   agent-task.py
   validate-repository.sh
   tests/test_agent_workflow.py
-.github/workflows/validate.yml
+.github/workflows/
+  validate.yml
+  release.yml
 ~~~
 
 ## Quick start
@@ -104,6 +107,10 @@ Workflow v3 uses a compact coordinator-owned evidence.json. Detailed logs and re
 ## Validation
 
 The public repository intentionally has a small dependency surface. CI validates Python syntax, the Workflow v3 regression suite, example TOML manifests, and shell syntax. It requires no production credentials and performs no deployment.
+
+## Releases
+
+Public releases are intentionally dispatched by a human from `main`. The release workflow validates the exact commit, creates a Git archive ZIP plus SHA-256 checksum, and refuses to move or overwrite an existing version tag. See `docs/RELEASING.md`.
 
 ## Origin
 
