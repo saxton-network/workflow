@@ -95,6 +95,14 @@ class WorkflowV3Tests(unittest.TestCase):
             "validators": [{"path": "scripts/check.py", "sha256": "e" * 64}],
             "rollbackArtifact": {"identity": "artifact:rollback", "provenance": "verified"},
             "installedScripts": [{"path": "scripts/install.sh", "sha256": "f" * 64}],
+            "deploymentTargets": [
+                {
+                    "destination": "/srv/example/app",
+                    "mode": "0755",
+                    "owner": "example",
+                    "group": "example",
+                }
+            ],
         }
         fingerprint = agent_task.batch_fingerprint(batch)
         records = [
@@ -168,10 +176,13 @@ class WorkflowV3Tests(unittest.TestCase):
             agent_task.validate_manifest(manifest)
 
     def test_deployment_terminal_must_be_final_reconciliation(self) -> None:
-        manifest = self.deploy_manifest()
-        manifest["workflow"]["terminal_task"] = "R"
-        with self.assertRaisesRegex(SystemExit, "final_reconciliation_task"):
-            agent_task.validate_manifest(manifest)
+        for terminal in ("R", "J"):
+            manifest = self.deploy_manifest()
+            manifest["workflow"]["terminal_task"] = terminal
+            with self.subTest(terminal=terminal), self.assertRaisesRegex(
+                SystemExit, "final_reconciliation_task"
+            ):
+                agent_task.validate_manifest(manifest)
 
     def test_deployment_requires_authority_even_without_promotion(self) -> None:
         manifest = self.deploy_manifest(promotion=False)
@@ -312,6 +323,220 @@ class WorkflowV3Tests(unittest.TestCase):
         evidence = self.evidence()
         evidence["workflowId"] = "foreign"
         self.assertEqual(self.gate(manifest, evidence), "GATED")
+
+    def test_frozen_batch_requires_explicit_deployment_targets(self) -> None:
+        manifest = self.deploy_manifest()
+
+        evidence = self.evidence()
+        del evidence["records"][2]["frozenBatch"]["deploymentTargets"]
+        evidence["records"][2]["frozenBatchFingerprint"] = agent_task.batch_fingerprint(
+            evidence["records"][2]["frozenBatch"]
+        )
+        self.assertEqual(self.gate(manifest, evidence), "GATED")
+
+        for targets in (
+            [],
+            [{"destination": "/srv/example/app"}],
+            [{"destination": "", "mode": "0755"}],
+            [{"destination": "/srv/example/app", "mode": ""}],
+            [{"destination": "/srv/example/app", "mode": 755}],
+        ):
+            evidence = self.evidence()
+            evidence["records"][2]["frozenBatch"]["deploymentTargets"] = targets
+            evidence["records"][2]["frozenBatchFingerprint"] = agent_task.batch_fingerprint(
+                evidence["records"][2]["frozenBatch"]
+            )
+            with self.subTest(targets=targets):
+                self.assertEqual(self.gate(manifest, evidence), "GATED")
+
+    def test_batch_fingerprint_is_order_independent_for_declared_lists(self) -> None:
+        batch = self.evidence()["records"][2]["frozenBatch"]
+        batch["deploymentConfiguration"].append(
+            {"path": "deploy/other", "sha256": "1" * 64}
+        )
+        batch["validators"].append(
+            {"path": "scripts/other-check.py", "sha256": "2" * 64}
+        )
+        batch["installedScripts"].append(
+            {"path": "scripts/other-install.sh", "sha256": "3" * 64}
+        )
+        batch["deploymentTargets"].append(
+            {"destination": "/srv/example/worker", "mode": None}
+        )
+
+        reordered = copy.deepcopy(batch)
+        for key in (
+            "deploymentConfiguration",
+            "validators",
+            "installedScripts",
+            "deploymentTargets",
+        ):
+            reordered[key].reverse()
+
+        self.assertEqual(
+            agent_task.batch_fingerprint(batch),
+            agent_task.batch_fingerprint(reordered),
+        )
+
+    def test_repair_candidate_without_preceding_findings_is_gated(self) -> None:
+        manifest = self.deploy_manifest()
+        manifest["status"]["I"] = "complete"
+        evidence = self.evidence()
+        repaired = "1" * 40
+        batch = evidence["records"][2]["frozenBatch"]
+        batch["deploymentSourceSha"] = repaired
+        fingerprint = agent_task.batch_fingerprint(batch)
+        evidence["records"] = [
+            evidence["records"][0],
+            {"taskId": "I", "taskStatus": "complete", "candidateSha": repaired},
+            {
+                "taskId": "H",
+                "taskStatus": "passed",
+                "candidateSha": self.REVIEW_RESULT,
+                "deploymentSourceSha": repaired,
+            },
+            {
+                **evidence["records"][2],
+                "deploymentSourceSha": repaired,
+                "frozenBatchFingerprint": fingerprint,
+                "gitDivergence": {
+                    "identical": True,
+                    "authoritySha": repaired,
+                    "otherSha": repaired,
+                },
+            },
+            {
+                **evidence["records"][3],
+                "deploymentSourceSha": repaired,
+                "frozenBatchFingerprint": fingerprint,
+            },
+        ]
+        self.assertEqual(self.gate(manifest, evidence), "GATED")
+
+    def test_stale_readiness_cannot_survive_repair_and_fresh_review(self) -> None:
+        manifest = self.deploy_manifest()
+        manifest["status"]["I"] = "complete"
+        evidence = self.evidence()
+        repaired = "1" * 40
+        evidence["records"].extend(
+            [
+                {
+                    "taskId": "H",
+                    "taskStatus": "findings",
+                    "deploymentSourceSha": self.SOURCE,
+                },
+                {"taskId": "I", "taskStatus": "complete", "candidateSha": repaired},
+                {
+                    "taskId": "H",
+                    "taskStatus": "passed",
+                    "candidateSha": self.REVIEW_RESULT,
+                    "deploymentSourceSha": repaired,
+                },
+            ]
+        )
+        self.assertEqual(self.gate(manifest, evidence), "GATED")
+
+    def test_new_candidate_after_final_review_invalidates_gate(self) -> None:
+        manifest = self.deploy_manifest()
+        evidence = self.evidence()
+        evidence["records"].append(
+            {"taskId": "G", "taskStatus": "complete", "candidateSha": "9" * 40}
+        )
+        self.assertEqual(self.gate(manifest, evidence), "GATED")
+
+    def test_newer_conflicting_review_record_invalidates_stale_pass(self) -> None:
+        manifest = self.deploy_manifest()
+        evidence = self.evidence()
+        evidence["records"].append(
+            {
+                "taskId": "H",
+                "taskStatus": "findings",
+                "deploymentSourceSha": self.SOURCE,
+            }
+        )
+        self.assertEqual(self.gate(manifest, evidence), "GATED")
+
+    def test_evidence_with_right_identity_at_wrong_path_is_gated(self) -> None:
+        manifest = self.deploy_manifest()
+        evidence = self.evidence()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            foreign_path = root / "agent-work" / "foreign" / "evidence.json"
+            foreign_path.parent.mkdir(parents=True)
+            foreign_path.write_text(json.dumps(evidence), encoding="utf-8")
+            with patch.object(agent_task, "ROOT", root):
+                self.assertEqual(
+                    agent_task.live_gate_state(manifest, foreign_path),
+                    "GATED",
+                )
+
+    def test_malformed_or_mismatched_approval_stays_preview_only(self) -> None:
+        manifest = self.deploy_manifest()
+        for value in (None, "", "   ", 123):
+            evidence = self.evidence()
+            evidence["records"][3]["approvalReference"] = value
+            with self.subTest(approvalReference=value):
+                self.assertEqual(self.gate(manifest, evidence), "PREVIEW")
+
+        evidence = self.evidence()
+        evidence["records"][3]["deploymentSourceSha"] = "9" * 40
+        self.assertEqual(self.gate(manifest, evidence), "PREVIEW")
+
+    def test_final_reconciliation_binds_runtime_to_readiness_source_and_fingerprint(self) -> None:
+        manifest = self.deploy_manifest()
+        manifest["status"]["J"] = "complete"
+        evidence = self.evidence()
+        evidence["records"][3].update(taskStatus="complete", runtimeAcceptance="PASS")
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = root / manifest["workflow"]["evidence_manifest"]
+            path.parent.mkdir(parents=True)
+
+            with patch.object(agent_task, "ROOT", root):
+                path.write_text(json.dumps(evidence), encoding="utf-8")
+                self.assertTrue(agent_task.final_reconciliation_ready(manifest))
+
+                wrong_source = copy.deepcopy(evidence)
+                wrong_source["records"][3]["deploymentSourceSha"] = "9" * 40
+                path.write_text(json.dumps(wrong_source), encoding="utf-8")
+                self.assertFalse(agent_task.final_reconciliation_ready(manifest))
+
+                wrong_fingerprint = copy.deepcopy(evidence)
+                wrong_fingerprint["records"][3]["frozenBatchFingerprint"] = "0" * 64
+                path.write_text(json.dumps(wrong_fingerprint), encoding="utf-8")
+                self.assertFalse(agent_task.final_reconciliation_ready(manifest))
+
+    def test_live_gate_enforces_known_additive_divergence_proof(self) -> None:
+        manifest = self.deploy_manifest()
+        evidence = self.evidence()
+        evidence["records"][2]["gitDivergence"] = {
+            "identical": False,
+            "objectPresent": True,
+            "ancestryProven": True,
+            "changedPathsInspected": True,
+            "deploymentInputsUnchanged": True,
+            "changedPaths": ["docs/readme.md"],
+            "deploymentInputPaths": ["services/**", "deploy/**"],
+            "authoritySha": self.SOURCE,
+            "otherSha": self.REVIEW_RESULT,
+            "objectSha": self.REVIEW_RESULT,
+            "ancestryAncestorSha": self.SOURCE,
+            "ancestryDescendantSha": self.REVIEW_RESULT,
+            "proofEvidencePath": "agent-work/example/results/refs.log",
+            "proofEvidenceSha256": "1" * 64,
+        }
+        self.assertEqual(self.gate(manifest, evidence), "READY")
+
+        protected = copy.deepcopy(evidence)
+        protected["records"][2]["gitDivergence"]["changedPaths"] = [
+            "services/app/server.py"
+        ]
+        self.assertEqual(self.gate(manifest, protected), "GATED")
+
+        missing_proof = copy.deepcopy(evidence)
+        del missing_proof["records"][2]["gitDivergence"]["proofEvidenceSha256"]
+        self.assertEqual(self.gate(manifest, missing_proof), "GATED")
 
     def test_divergence_requires_explicit_proof(self) -> None:
         base = dict(
