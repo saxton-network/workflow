@@ -547,7 +547,7 @@ def print_ready(data: dict) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("phase", help="phase directory under agent-work, e.g. phase4")
+    parser.add_argument("phase", help="workflow directory under agent-work, e.g. example")
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("task", nargs="?", help="task ID, e.g. A")
     group.add_argument("--coordinator", action="store_true", help="print the one-shot workflow coordinator handoff")
