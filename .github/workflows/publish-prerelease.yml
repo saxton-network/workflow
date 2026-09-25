@@ -1,0 +1,38 @@
+name: Publish alpha prerelease
+
+on:
+  push:
+    branches:
+      - release/public-workflow-v3
+    paths:
+      - .github/workflows/publish-prerelease.yml
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Build source ZIP
+        run: |
+          git archive --format=zip --prefix=workflow-v0.1.0-alpha.1/ HEAD -o workflow-v0.1.0-alpha.1.zip
+          sha256sum workflow-v0.1.0-alpha.1.zip > workflow-v0.1.0-alpha.1.zip.sha256
+
+      - name: Publish prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create v0.1.0-alpha.1 \
+            workflow-v0.1.0-alpha.1.zip \
+            workflow-v0.1.0-alpha.1.zip.sha256 \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "Workflow v0.1.0-alpha.1" \
+            --prerelease \
+            --notes 'Experimental public preview of Workflow v3. Includes the repository-native specification, coordinator contract, evidence model, read-only helper, standalone regression tests, examples, and sanitized pilot history. Repository-only workflow behavior has completed a controlled pilot; deployment-readiness behavior remains under adversarial pilot testing. No public license has been selected yet.'
