@@ -198,6 +198,11 @@ def _canonical_batch(value: object) -> bytes:
             parts = [ordered(part) for part in item]
             if parts and all(isinstance(part, dict) and isinstance(part.get("path"), str) for part in parts):
                 parts.sort(key=lambda part: part["path"])
+            elif parts and all(
+                isinstance(part, dict) and isinstance(part.get("destination"), str)
+                for part in parts
+            ):
+                parts.sort(key=lambda part: part["destination"])
             return parts
         return item
     return json.dumps(ordered(value), sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False).encode("utf-8")
@@ -313,7 +318,15 @@ def live_gate_state(data: dict, evidence_path: Path | None = None, *, allow_comp
     elif candidate_record.get("taskId") == repair_id:
         # A repair without a recorded review finding is not a reviewed candidate.
         return "GATED"
-    required_batch = {"deploymentSourceSha", "deployableArtifactSha256", "deploymentConfiguration", "validators", "rollbackArtifact", "installedScripts"}
+    required_batch = {
+        "deploymentSourceSha",
+        "deployableArtifactSha256",
+        "deploymentConfiguration",
+        "validators",
+        "rollbackArtifact",
+        "installedScripts",
+        "deploymentTargets",
+    }
     if not required_batch.issubset(batch) or batch.get("deploymentSourceSha") != source:
         return "GATED"
     if not isinstance(batch.get("deployableArtifactSha256"), str) or not SHA256.fullmatch(batch["deployableArtifactSha256"]):
@@ -326,6 +339,21 @@ def live_gate_state(data: dict, evidence_path: Path | None = None, *, allow_comp
             for entry in entries
         ):
             return "GATED"
+    targets = batch["deploymentTargets"]
+    if not isinstance(targets, list) or not targets:
+        return "GATED"
+    for target in targets:
+        if (not isinstance(target, dict) or
+            not isinstance(target.get("destination"), str) or not target["destination"] or
+            "mode" not in target):
+            return "GATED"
+        mode = target["mode"]
+        if mode is not None and (not isinstance(mode, str) or not mode):
+            return "GATED"
+        for key in ("owner", "group"):
+            value = target.get(key)
+            if key in target and value is not None and (not isinstance(value, str) or not value):
+                return "GATED"
     rollback = batch["rollbackArtifact"]
     if not isinstance(rollback, dict) or any(not isinstance(rollback.get(key), str) or not rollback[key]
                                               for key in ("identity", "provenance")):
