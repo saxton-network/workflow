@@ -99,7 +99,7 @@ The live gate has three helper states:
 
 ## Evidence
 
-Workflow v3 uses a compact coordinator-owned evidence.json. Detailed logs and reports remain separate and are linked by path plus SHA-256. Failed attempts are preserved. Credentials, bearer values, private keys, secret-bearing bodies, and chat transcripts do not belong in the index.
+Workflow v3 uses a compact coordinator-owned evidence.json. Detailed logs and reports remain separate and are linked by path plus SHA-256. Failed attempts are preserved. Frozen deployment batches explicitly bind deployment destinations and mode metadata, so a changed target invalidates readiness and approval. Credentials, bearer values, private keys, secret-bearing bodies, and chat transcripts do not belong in the index.
 
 ## Validation
 
