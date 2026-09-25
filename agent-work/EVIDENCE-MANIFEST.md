@@ -33,7 +33,15 @@ The coordinator maintains `agent-work/<workflow-id>/evidence.json`, named by `[w
         "deploymentConfiguration": [{"path": "<path>", "sha256": "<sha256 hex>"}],
         "validators": [{"path": "<path>", "sha256": "<sha256 hex>"}],
         "rollbackArtifact": {"identity": "<immutable ID>", "provenance": "<evidence path>"},
-        "installedScripts": [{"path": "<path>", "sha256": "<sha256 hex>"}]
+        "installedScripts": [{"path": "<path>", "sha256": "<sha256 hex>"}],
+        "deploymentTargets": [
+          {
+            "destination": "<deployment destination>",
+            "mode": "0755",
+            "owner": "<owner when applicable>",
+            "group": "<group when applicable>"
+          }
+        ]
       },
       "frozenBatchFingerprint": "<sha256 hex>",
       "gitDivergence": {
@@ -58,9 +66,11 @@ The coordinator maintains `agent-work/<workflow-id>/evidence.json`, named by `[w
 }
 ```
 
-The example is illustrative; placeholder hashes are not valid evidence. Store one record per accepted task result or attempt, including failed attempts. Preserve record order. Use full commit SHAs and SHA-256 hex for actual fingerprints. `taskStatus` uses the manifest lifecycle vocabulary; `readinessVerdict` is only `PASS`, `FAIL`, or `UNKNOWN` for a readiness record and `null` elsewhere. The final review PASS, readiness record, and approval must name the candidate SHA in the latest completed declared implementation/integration record before that PASS, or the declared repair record following review findings. Any later candidate-producing record requires fresh review and readiness. A `PASS` readiness record identifies the exact source and includes `frozenBatch` so another agent can recompute `frozenBatchFingerprint` from canonical sorted-key JSON. The required batch fields are source SHA, deployable artifact hash, configuration and validator path/hash lists, rollback identity/provenance, and installed script path/hash list. Include relevant destination and mode metadata for the actual deployment. The human approval reference and exact source/fingerprint belong to the live-attempt record. After deployment, that record also carries `runtimeAcceptance` (`PASS` or `FAIL`); final reconciliation requires `PASS` for the same source and batch.
+The example is illustrative; placeholder hashes are not valid evidence. Store one record per accepted task result or attempt, including failed attempts. Preserve record order. Use full commit SHAs and SHA-256 hex for actual fingerprints. `taskStatus` uses the manifest lifecycle vocabulary; `readinessVerdict` is only `PASS`, `FAIL`, or `UNKNOWN` for a readiness record and `null` elsewhere. The final review PASS, readiness record, and approval must name the candidate SHA in the latest completed declared implementation/integration record before that PASS, or the declared repair record following review findings. Any later candidate-producing record requires fresh review and readiness. A `PASS` readiness record identifies the exact source and includes `frozenBatch` so another agent can recompute `frozenBatchFingerprint` from canonical sorted-key JSON. The required batch fields are source SHA, deployable artifact hash, configuration and validator path/hash lists, rollback identity/provenance, installed script path/hash list, and a nonempty `deploymentTargets` array. Every target has a nonempty `destination` and an explicit `mode`; `mode` may be `null` only when it does not apply to that deployment method. Optional `owner` and `group` values are recorded when applicable. Destination/mode/ownership metadata is fingerprint-bound, so changing it requires fresh readiness and approval. The human approval reference and exact source/fingerprint belong to the live-attempt record. After deployment, that record also carries `runtimeAcceptance` (`PASS` or `FAIL`); final reconciliation requires `PASS` for the same source and batch.
 
 The readiness record includes `gitDivergence`. For identical refs, record `identical: true` with `authoritySha` and `otherSha` equal to the reviewed source. For a proposed known additive descendant, set `identical: false` and record `authoritySha`, `otherSha`, `objectSha`, `ancestryAncestorSha`, `ancestryDescendantSha`, `proofEvidencePath`, `proofEvidenceSha256`, `changedPaths`, `deploymentInputPaths`, and explicit boolean `objectPresent`, `ancestryProven`, `changedPathsInspected`, and `deploymentInputsUnchanged`. The coordinator obtains the object and verifies ancestry and paths directly; these fields are an index to durable proof, not a substitute. A missing proof, unknown or destructive divergence, or a changed path matching protected deployment inputs blocks live handoff. Direct remote refs and mutable paths must be checked again immediately before mutation.
+
+`reviewFindingIds` is audit metadata for linking detailed review findings; the helper does not use it as an authorization or gate input. The authoritative repair/re-review gate is established by ordered task records, candidate identity, task status, and the declared graph.
 
 Use `null` for unavailable scalar data and an empty array only when an observed collection is truly empty. Unknown model, tokens, cost, times, approval, or deployment state must not be inferred. Optional measured token/cost fields may be added only when a trustworthy source exists; the index is not a telemetry mandate. Validation entries may use a command instead of `checkId`, and a non-process check may set `exitCode` to `null`; always record its verdict and detailed evidence link. Hash each referenced durable evidence file with SHA-256. Keep path references relative to the repository or to an explicitly named external evidence root; do not duplicate complete logs in JSON.
 
