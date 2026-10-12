@@ -6,9 +6,11 @@ from __future__ import annotations
 import argparse
 import fnmatch
 import hashlib
+import itertools
 import json
 import re
 import sys
+import unicodedata
 from pathlib import Path
 
 try:
@@ -41,6 +43,9 @@ V3_KINDS = {
 DEPLOYMENT_KINDS = {"authority_promotion", "release_readiness", "live_deployment", "final_reconciliation"}
 SHA1 = re.compile(r"[0-9a-f]{40}\Z")
 SHA256 = re.compile(r"[0-9a-f]{64}\Z")
+WINDOWS_ABSOLUTE = re.compile(r"[A-Za-z]:\\")
+URL_SCHEME = re.compile(r"[A-Za-z][A-Za-z0-9+.-]*://")
+MAX_RECURSIVE_SEGMENTS = 6
 
 
 def _fail(message: str) -> None:
@@ -95,6 +100,8 @@ def validate_manifest(data: dict) -> None:
             for value in required.values()
         ):
             _fail(f"task {task_id} has invalid required_status")
+    # Cross-task checks below may read another task's fields, so every task is type-checked first.
+    for task_id, task in tasks.items():
         rerun = task.get("rerun_after")
         if rerun is not None and (not isinstance(rerun, str) or rerun not in tasks or
                                   not isinstance(tasks[rerun], dict) or tasks[rerun].get("kind") != "repair"):
@@ -225,25 +232,71 @@ def _normalized_repo_path(path: object, *, allow_trailing_slash: bool = False) -
 
 
 def _canonical_path(path: object) -> bool:
-    """One spelling per location: like a normalized repository path, optionally absolute."""
-    return isinstance(path, str) and _normalized_repo_path(path[1:] if path.startswith("/") else path)
+    """One spelling per file: a normalized repository, POSIX-absolute, or Windows-absolute path."""
+    if not isinstance(path, str):
+        return False
+    if WINDOWS_ABSOLUTE.match(path):
+        rest = path[3:]
+        return "/" not in rest and _normalized_repo_path(rest.replace("\\", "/"))
+    return _normalized_repo_path(path[1:] if path.startswith("/") else path)
 
 
-def _canonical_destination(destination: object) -> bool:
-    # Destinations may be URLs or remote specs, so only reject spellings that alias a filesystem path.
-    return (isinstance(destination, str) and bool(destination) and not destination.endswith("/") and
-            all(segment not in {".", ".."} for segment in destination.split("/")))
+def _path_key(path: str) -> str:
+    """Comparison key for a canonical batch path, so Unicode or drive-case variants still collide."""
+    key = unicodedata.normalize("NFC", path)
+    return key.casefold() if WINDOWS_ABSOLUTE.match(key) else key
+
+
+def _destination_key(destination: object) -> str | None:
+    """Comparison key for a deployment destination, or None when its spelling is ambiguous."""
+    if not isinstance(destination, str) or not destination.strip():
+        return None
+    key = unicodedata.normalize("NFC", destination)
+    windows = bool(WINDOWS_ABSOLUTE.match(key))
+    key = key.replace("\\", "/")
+    scheme = URL_SCHEME.match(key)
+    prefix, rest = (key[:scheme.end()], key[scheme.end():]) if scheme else ("", key)
+    if any(segment in {".", ".."} for segment in rest.split("/")):
+        return None
+    # Repeated or trailing separators name the same location; a lone root keeps its slash.
+    rest = re.sub("/+", "/", rest)
+    rest = rest.rstrip("/") or rest[:1]
+    if not rest:
+        return None
+    return (prefix + rest).casefold() if windows else prefix + rest
+
+
+def _pattern_spellings(pattern: str) -> set[str] | None:
+    """Globs a protected pattern stands for, or None if it has too many ** segments to expand."""
+    spellings: set[str] = set()
+    # Brackets may name a literal directory such as pages/[id]/ as well as a character class.
+    for form in {pattern, pattern.replace("[", "[[]")}:
+        segments = form.split("/")
+        recursive = [index for index, segment in enumerate(segments) if segment == "**"]
+        if len(recursive) > MAX_RECURSIVE_SEGMENTS:
+            return None
+        # A ** segment also stands for no directories at all.
+        for dropped in itertools.product((False, True), repeat=len(recursive)):
+            skip = {index for index, drop in zip(recursive, dropped) if drop}
+            spellings.add("/".join(segment for index, segment in enumerate(segments) if index not in skip))
+    return spellings
 
 
 def _matches_protected(path: str, pattern: str) -> bool:
-    """Literal path, fnmatch glob (where * also crosses /), or a trailing / meaning the whole subtree."""
-    base = pattern.rstrip("/")
-    if path in {pattern, base} or path.startswith(base + "/"):
+    """Literal path, fnmatch glob (where * also crosses / and ** may be empty), or a / subtree."""
+    path, pattern = unicodedata.normalize("NFC", path), unicodedata.normalize("NFC", pattern)
+    spellings = _pattern_spellings(pattern)
+    if spellings is None:
         return True
-    if fnmatch.fnmatchcase(path, base) or fnmatch.fnmatchcase(path, base + "/*"):
-        return True
-    # A leading **/ also covers the repository root.
-    return base.startswith("**/") and _matches_protected(path, base[3:])
+    for spelling in spellings:
+        base = spelling.rstrip("/")
+        if not base:
+            return True
+        if path in {spelling, base} or path.startswith(base + "/"):
+            return True
+        if fnmatch.fnmatchcase(path, base) or fnmatch.fnmatchcase(path, base + "/*"):
+            return True
+    return False
 
 
 def classify_divergence(*, identical: bool, object_present: bool = False,
@@ -291,13 +344,14 @@ def _read_evidence(data: dict, evidence_path: Path | None) -> dict | None:
             return None
         with path.open(encoding="utf-8") as handle:
             evidence = json.load(handle, object_pairs_hook=_unique_keys)
-    except (KeyError, OSError, ValueError, TypeError, RecursionError):
+    except (KeyError, OSError, ValueError, TypeError, RecursionError, RuntimeError):
+        # RuntimeError covers Path.resolve() symlink loops on Python 3.11 and 3.12.
         return None
     if not (isinstance(evidence, dict) and evidence.get("workflowVersion") == 3 and
             evidence.get("workflowId") == phase and isinstance(evidence.get("records"), list)):
         return None
     if any(not isinstance(record, dict) or not isinstance(record.get("taskId"), str) or
-           not isinstance(record.get("taskStatus"), (str, type(None)))
+           "taskStatus" not in record or not isinstance(record["taskStatus"], (str, type(None)))
            for record in evidence["records"]):
         return None
     return evidence
@@ -379,15 +433,20 @@ def live_gate_state(data: dict, evidence_path: Path | None = None, *, allow_comp
         return "GATED"
     if not isinstance(batch.get("deployableArtifactSha256"), str) or not SHA256.fullmatch(batch["deployableArtifactSha256"]):
         return "GATED"
+    frozen_hashes: dict[str, str] = {}
     for key in BATCH_PATH_LISTS:
         entries = batch[key]
         if not isinstance(entries, list) or any(
             not isinstance(entry, dict) or not _canonical_path(entry.get("path")) or
             not isinstance(entry.get("sha256"), str) or not SHA256.fullmatch(entry["sha256"])
             for entry in entries
-        ) or len({entry["path"] for entry in entries}) != len(entries):
+        ) or len({_path_key(entry["path"]) for entry in entries}) != len(entries):
             # A repeated path is ambiguous about which bytes were frozen.
             return "GATED"
+        for entry in entries:
+            # One file may serve two roles, but never with two different contents.
+            if frozen_hashes.setdefault(_path_key(entry["path"]), entry["sha256"]) != entry["sha256"]:
+                return "GATED"
     if not batch["validators"]:
         # A batch frozen without any validator has proven nothing about the candidate.
         return "GATED"
@@ -396,7 +455,7 @@ def live_gate_state(data: dict, evidence_path: Path | None = None, *, allow_comp
         return "GATED"
     for target in targets:
         if (not isinstance(target, dict) or
-            not _canonical_destination(target.get("destination")) or
+            _destination_key(target.get("destination")) is None or
             "mode" not in target):
             return "GATED"
         mode = target["mode"]
@@ -406,7 +465,7 @@ def live_gate_state(data: dict, evidence_path: Path | None = None, *, allow_comp
             value = target.get(key)
             if key in target and value is not None and (not isinstance(value, str) or not value):
                 return "GATED"
-    if len({target["destination"] for target in targets}) != len(targets):
+    if len({_destination_key(target["destination"]) for target in targets}) != len(targets):
         return "GATED"
     rollback = batch["rollbackArtifact"]
     if not isinstance(rollback, dict) or any(not isinstance(rollback.get(key), str) or not rollback[key]

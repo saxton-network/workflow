@@ -4,6 +4,9 @@ import copy
 import importlib.util
 import io
 import json
+import os
+import shutil
+import subprocess
 import tempfile
 import unittest
 from contextlib import redirect_stdout
@@ -783,6 +786,200 @@ class WorkflowV3Tests(unittest.TestCase):
             agent_task.batch_fingerprint(batch),
             agent_task.batch_fingerprint(reordered),
         )
+
+    def test_documented_changed_paths_command_reports_renamed_protected_files(self) -> None:
+        documented = ["git", "diff", "--no-renames", "--name-only", "-z"]
+        manifest_doc = (ROOT / "agent-work" / "EVIDENCE-MANIFEST.md").read_text(encoding="utf-8")
+        self.assertIn(" ".join(documented), manifest_doc)
+        if shutil.which("git") is None:
+            self.skipTest("git is not installed")
+
+        env = {**os.environ, "GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1"}
+        identity = ["-c", "user.name=test", "-c", "user.email=test@example.invalid", "-c", "commit.gpgsign=false"]
+
+        def git(repo: Path, *args: str) -> str:
+            return subprocess.run(["git", *identity, *args], cwd=repo, env=env, check=True,
+                                  capture_output=True, text=True).stdout
+
+        with tempfile.TemporaryDirectory() as directory:
+            repo = Path(directory)
+            git(repo, "init", "-q")
+            (repo / "scripts").mkdir()
+            (repo / "scripts" / "install.sh").write_text("echo install\n", encoding="utf-8")
+            git(repo, "add", "-A")
+            git(repo, "commit", "-q", "-m", "source")
+            source = git(repo, "rev-parse", "HEAD").strip()
+            (repo / "docs").mkdir()
+            git(repo, "mv", "scripts/install.sh", "docs/install-old.sh")
+            git(repo, "commit", "-q", "-m", "move")
+
+            def changed(command: list[str]) -> list[str]:
+                output = subprocess.run([*command, source, "HEAD"], cwd=repo, env=env, check=True,
+                                        capture_output=True, text=True).stdout
+                return [path for path in output.split("\0") if path]
+
+            documented_paths = changed(documented)
+            rename_detecting_paths = changed(["git", "diff", "--name-only", "-z"])
+
+        manifest = self.deploy_manifest()
+        evidence = self.evidence()
+        self.additive_descendant(evidence, documented_paths, ["services/**"])
+        self.assertEqual(self.gate(manifest, evidence), "GATED")
+
+        # The default rename detection hides the moved-away file; this is why the flag is required.
+        self.assertNotIn("scripts/install.sh", rename_detecting_paths)
+
+    def test_recursive_and_bracketed_patterns_cover_their_paths(self) -> None:
+        base = dict(
+            identical=False,
+            object_present=True,
+            ancestry_proven=True,
+            changed_paths_inspected=True,
+            deployment_inputs_unchanged=True,
+        )
+        for path, pattern in (
+            ("deploy/app.yml", "deploy/**/*.yml"),
+            ("deploy/prod/app.yml", "deploy/**/*.yml"),
+            ("services/Dockerfile", "services/**/Dockerfile"),
+            ("a/b", "a/**/**/b"),
+            ("pages/[id]/view.tsx", "pages/[id]/**"),
+            ("pages/[id]/view.tsx", "pages/[id]/*"),
+            ("pages/i/view.tsx", "pages/[id]/**"),
+            ("docs/caf\u00e9.md", "docs/cafe\u0301.md"),
+            ("anything/at/all.txt", "/".join(["**"] * 7) + "/x"),
+        ):
+            with self.subTest(path=path, pattern=pattern):
+                self.assertEqual(
+                    agent_task.classify_divergence(
+                        **base, changed_paths=[path], deployment_input_paths=[pattern]
+                    ),
+                    "protected_change",
+                )
+        for path, pattern in (
+            ("docs/app.yml", "deploy/**/*.yml"),
+            ("deploy/app.json", "deploy/**/*.yml"),
+            ("pages/other/view.tsx", "pages/[id]/**"),
+        ):
+            with self.subTest(unprotected=path, pattern=pattern):
+                self.assertEqual(
+                    agent_task.classify_divergence(
+                        **base, changed_paths=[path], deployment_input_paths=[pattern]
+                    ),
+                    "known_additive",
+                )
+
+    def test_destination_aliases_are_gated(self) -> None:
+        manifest = self.deploy_manifest()
+        for destination in (
+            "/srv//example/app",
+            "//srv/example/app",
+            "/srv/example/app//",
+            "\\srv\\example\\app",
+        ):
+            evidence = self.evidence()
+            evidence["records"][2]["frozenBatch"]["deploymentTargets"].append(
+                {"destination": destination, "mode": "0777"}
+            )
+            self.refingerprint(evidence)
+            with self.subTest(destination=destination):
+                self.assertEqual(self.gate(manifest, evidence), "GATED")
+
+        for first, second in (
+            ("C:\\srv\\app", "c:\\SRV\\app\\"),
+            ("/srv/caf\u00e9", "/srv/cafe\u0301"),
+            ("https://deploy.example/api", "https://deploy.example/api/"),
+        ):
+            evidence = self.evidence()
+            evidence["records"][2]["frozenBatch"]["deploymentTargets"] = [
+                {"destination": first, "mode": None},
+                {"destination": second, "mode": None},
+            ]
+            self.refingerprint(evidence)
+            with self.subTest(first=first, second=second):
+                self.assertEqual(self.gate(manifest, evidence), "GATED")
+
+        for destination in ("C:\\srv\\.\\app", "https://deploy.example/../api", "   "):
+            evidence = self.evidence()
+            evidence["records"][2]["frozenBatch"]["deploymentTargets"] = [
+                {"destination": destination, "mode": None}
+            ]
+            self.refingerprint(evidence)
+            with self.subTest(ambiguous=destination):
+                self.assertEqual(self.gate(manifest, evidence), "GATED")
+
+    def test_prefix_root_and_windows_locations_are_accepted(self) -> None:
+        manifest = self.deploy_manifest()
+        for destination in ("s3://bucket/releases/", "https://deploy.example/", "/", "C:\\srv\\app\\"):
+            evidence = self.evidence()
+            evidence["records"][2]["frozenBatch"]["deploymentTargets"] = [
+                {"destination": destination, "mode": None}
+            ]
+            self.refingerprint(evidence)
+            with self.subTest(destination=destination):
+                self.assertEqual(self.gate(manifest, evidence), "READY")
+
+        evidence = self.evidence()
+        evidence["records"][2]["frozenBatch"]["deploymentConfiguration"].append(
+            {"path": "C:\\ProgramData\\app\\app.json", "sha256": "1" * 64}
+        )
+        self.refingerprint(evidence)
+        self.assertEqual(self.gate(manifest, evidence), "READY")
+
+        for path in ("C:\\ProgramData\\app\\", "C:\\ProgramData/app.json", "C:\\a\\..\\b"):
+            evidence = self.evidence()
+            evidence["records"][2]["frozenBatch"]["deploymentConfiguration"].append(
+                {"path": path, "sha256": "1" * 64}
+            )
+            self.refingerprint(evidence)
+            with self.subTest(path=path):
+                self.assertEqual(self.gate(manifest, evidence), "GATED")
+
+    def test_batch_path_aliases_and_conflicting_roles_are_gated(self) -> None:
+        manifest = self.deploy_manifest()
+
+        evidence = self.evidence()
+        evidence["records"][2]["frozenBatch"]["deploymentConfiguration"] += [
+            {"path": "docs/caf\u00e9.md", "sha256": "3" * 64},
+            {"path": "docs/cafe\u0301.md", "sha256": "4" * 64},
+        ]
+        self.refingerprint(evidence)
+        self.assertEqual(self.gate(manifest, evidence), "GATED")
+
+        evidence = self.evidence()
+        batch = evidence["records"][2]["frozenBatch"]
+        batch["installedScripts"].append({"path": batch["validators"][0]["path"], "sha256": "5" * 64})
+        self.refingerprint(evidence)
+        self.assertEqual(self.gate(manifest, evidence), "GATED")
+
+        evidence = self.evidence()
+        batch = evidence["records"][2]["frozenBatch"]
+        batch["installedScripts"].append(dict(batch["validators"][0]))
+        self.refingerprint(evidence)
+        self.assertEqual(self.gate(manifest, evidence), "READY")
+
+    def test_manifest_type_errors_in_repair_task_fail_cleanly(self) -> None:
+        for key, value in (("depends_on", 1), ("required_status", 1), ("depends_on", [1])):
+            manifest = self.deploy_manifest()
+            manifest["tasks"]["I"][key] = value
+            with self.subTest(key=key, value=value), self.assertRaises(SystemExit):
+                agent_task.validate_manifest(manifest)
+
+    def test_evidence_symlink_loop_and_missing_status_are_gated(self) -> None:
+        manifest = self.deploy_manifest()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = root / manifest["workflow"]["evidence_manifest"]
+            path.parent.mkdir(parents=True)
+            try:
+                os.symlink(path, path)
+            except OSError:
+                self.skipTest("symlinks are unavailable")
+            with patch.object(agent_task, "ROOT", root):
+                self.assertEqual(agent_task.live_gate_state(manifest), "GATED")
+
+        evidence = self.evidence()
+        del evidence["records"][0]["taskStatus"]
+        self.assertEqual(self.gate(manifest, evidence), "GATED")
 
 
 if __name__ == "__main__":
