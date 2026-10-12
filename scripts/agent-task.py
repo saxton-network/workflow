@@ -48,6 +48,8 @@ WINDOWS_DRIVE = re.compile(r"[A-Za-z]:")
 WINDOWS_ABSOLUTE = re.compile(r"[A-Za-z]:[\\/]|\\\\")
 URL_SCHEME = re.compile(r"[A-Za-z][A-Za-z0-9+.-]*://")
 MAX_PATTERN_EXPANSIONS = 6
+# WHATWG parsers require a host for these schemes; other schemes may name a local path (unix:///run/x).
+HOST_REQUIRED_SCHEMES = {"http", "https", "ws", "wss", "ftp"}
 
 
 def _fail(message: str) -> None:
@@ -233,6 +235,11 @@ def _normalized_repo_path(path: object, *, allow_trailing_slash: bool = False) -
     return all(segment not in {"", ".", ".."} for segment in path.split("/"))
 
 
+def _windows_segments_ok(segments: list[str]) -> bool:
+    # Windows drops trailing dots and spaces and reads name:stream as the same file, so those spell aliases.
+    return all(segment and segment[-1] not in ". " and ":" not in segment for segment in segments)
+
+
 def _canonical_path(path: object) -> bool:
     """One spelling per file: a normalized repository, POSIX-absolute, or Windows-absolute path."""
     if not isinstance(path, str):
@@ -240,7 +247,8 @@ def _canonical_path(path: object) -> bool:
     if WINDOWS_DRIVE.match(path):
         # A Windows file is spelled C:\\dir\\file; C:/dir, C:dir, and mixed separators would alias it.
         rest = path[3:]
-        return path[2:3] == "\\" and "/" not in rest and _normalized_repo_path(rest.replace("\\", "/"))
+        return (path[2:3] == "\\" and "/" not in rest and _normalized_repo_path(rest.replace("\\", "/")) and
+                _windows_segments_ok(rest.split("\\")))
     return _normalized_repo_path(path[1:] if path.startswith("/") else path)
 
 
@@ -254,6 +262,9 @@ def _destination_key(destination: object) -> str | None:
     """Comparison key for a deployment destination, or None when its spelling is ambiguous."""
     if not isinstance(destination, str) or not destination.strip():
         return None
+    if destination.startswith(("\\\\?\\", "\\\\.\\")):
+        # Win32 namespace prefixes skip path normalization and alias ordinary paths.
+        return None
     key = unicodedata.normalize("NFC", destination)
     windows = bool(WINDOWS_ABSOLUTE.match(key))
     if WINDOWS_DRIVE.match(key) and not windows and not URL_SCHEME.match(key):
@@ -261,18 +272,11 @@ def _destination_key(destination: object) -> str | None:
         return None
     scheme = None if windows else URL_SCHEME.match(key)
     if scheme:
-        name = key[:scheme.end() - 3].lower()
-        authority, _slash, route = key[scheme.end():].partition("/")
-        if name == "file" and not authority:
-            key = "/" + route
-        else:
-            # Scheme and host are case-insensitive; the rest of a URL is compared as written.
-            path = re.split(r"[?#]", route, maxsplit=1)[0]
-            if not authority or any(segment in {".", ".."} for segment in path.split("/")):
-                return None
-            return f"{name}://{authority.lower()}/{route}"
+        return _url_key(key[:scheme.end() - 3].lower(), key[scheme.end():])
     key = key.replace("\\", "/")
     if any(segment in {".", ".."} for segment in key.split("/")):
+        return None
+    if windows and not _windows_segments_ok([segment for segment in key.split("/")[1:] if segment]):
         return None
     # Repeated or trailing separators name the same location; a lone root keeps its slash.
     key = re.sub("/+", "/", key)
@@ -281,6 +285,34 @@ def _destination_key(destination: object) -> str | None:
         return None
     # Drive and UNC paths are case-insensitive and never name the same place as a POSIX path.
     return "windows:" + key.casefold() if windows else key
+
+
+def _url_key(scheme: str, rest: str) -> str | None:
+    """Location key for scheme://rest: the host is case-insensitive, everything else compares as written."""
+    if "\\" in rest:
+        # Parsers read \ as / in web URLs, which would hide .. segments and aliases from these checks.
+        return None
+    end = re.search(r"[/?#]", rest)
+    authority, route = (rest[:end.start()], rest[end.start():]) if end else (rest, "")
+    userinfo, at, hostport = authority.rpartition("@")
+    if hostport.startswith("["):
+        host = hostport[:hostport.find("]") + 1] if "]" in hostport else ""
+    else:
+        host = hostport.partition(":")[0]
+    if scheme == "file" and not at and host.lower() in {"", "localhost"} and hostport == host:
+        return _destination_key(route) if route.startswith("/") else None
+    if not authority and scheme not in HOST_REQUIRED_SCHEMES:
+        local = _destination_key(route) if route.startswith("/") else None
+        return None if local is None else f"{scheme}:{local}"
+    if not host.strip("[]"):
+        return None
+    path = re.split(r"[?#]", route, maxsplit=1)[0]
+    if any(segment in {".", ".."} for segment in path.split("/")):
+        return None
+    if not route.startswith("/"):
+        # https://host?q and https://host/?q name the same resource.
+        route = "/" + route
+    return f"{scheme}://{userinfo}{at}{host.lower()}{hostport[len(host):]}{route}"
 
 
 @functools.lru_cache(maxsize=1024)
@@ -322,13 +354,11 @@ def _protected_matcher(pattern: str) -> tuple[frozenset[str], tuple[str, ...], r
     return frozenset(literals), tuple(prefixes), re.compile("|".join(f"(?:{glob})" for glob in globs))
 
 
-def _matches_protected(path: str, pattern: str) -> bool:
+def _matches_protected(path: str, matcher: tuple[frozenset[str], tuple[str, ...], re.Pattern[str]] | None) -> bool:
     """Literal path, fnmatch glob (where * also crosses / and ** may be empty), or a / subtree."""
-    matcher = _protected_matcher(pattern)
     if matcher is None:
         return True
     literals, prefixes, glob = matcher
-    path = unicodedata.normalize("NFC", path)
     return path in literals or path.startswith(prefixes) or glob.match(path) is not None
 
 
@@ -351,7 +381,10 @@ def classify_divergence(*, identical: bool, object_present: bool = False,
         isinstance(changed_paths, list) and all(_normalized_repo_path(path) for path in changed_paths) and
         isinstance(deployment_input_paths, list) and deployment_input_paths and
         all(_normalized_repo_path(path, allow_trailing_slash=True) for path in deployment_input_paths)):
-        if any(_matches_protected(path, pattern) for path in changed_paths for pattern in deployment_input_paths):
+        # Build every matcher once per call; a per-pair cache lookup thrashes once patterns outnumber it.
+        matchers = [_protected_matcher(pattern) for pattern in deployment_input_paths]
+        paths = [unicodedata.normalize("NFC", path) for path in changed_paths]
+        if any(_matches_protected(path, matcher) for path in paths for matcher in matchers):
             return "protected_change"
         return "known_additive"
     return "unknown"
