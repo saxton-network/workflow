@@ -216,6 +216,15 @@ def batch_fingerprint(batch: dict) -> str:
     return hashlib.sha256(_canonical_batch(batch)).hexdigest()
 
 
+def _normalized_repo_path(path: object, *, allow_trailing_slash: bool = False) -> bool:
+    """True for a plain repository-relative path such as `git diff --name-only` prints."""
+    if not isinstance(path, str) or not path or path.startswith("/") or "\\" in path:
+        return False
+    if allow_trailing_slash and path.endswith("/"):
+        path = path[:-1]
+    return all(segment not in {"", ".", ".."} for segment in path.split("/"))
+
+
 def classify_divergence(*, identical: bool, object_present: bool = False,
                         ancestry_proven: bool = False, changed_paths_inspected: bool = False,
                         deployment_inputs_unchanged: bool = False, destructive: bool = False,
@@ -231,9 +240,10 @@ def classify_divergence(*, identical: bool, object_present: bool = False,
     if destructive:
         return "destructive"
     if (ancestry_proven and changed_paths_inspected and deployment_inputs_unchanged and
-        isinstance(changed_paths, list) and all(isinstance(path, str) for path in changed_paths) and
+        # Unnormalized spellings such as ./services/x could slip past a protected pattern.
+        isinstance(changed_paths, list) and all(_normalized_repo_path(path) for path in changed_paths) and
         isinstance(deployment_input_paths, list) and deployment_input_paths and
-        all(isinstance(path, str) and path for path in deployment_input_paths)):
+        all(_normalized_repo_path(path, allow_trailing_slash=True) for path in deployment_input_paths)):
         if any(fnmatch.fnmatchcase(path, pattern) or path.startswith(pattern.rstrip("/") + "/")
                for path in changed_paths for pattern in deployment_input_paths):
             return "protected_change"
@@ -344,6 +354,9 @@ def live_gate_state(data: dict, evidence_path: Path | None = None, *, allow_comp
         ) or len({entry["path"] for entry in entries}) != len(entries):
             # A repeated path is ambiguous about which bytes were frozen.
             return "GATED"
+    if not batch["validators"]:
+        # A batch frozen without any validator has proven nothing about the candidate.
+        return "GATED"
     targets = batch["deploymentTargets"]
     if not isinstance(targets, list) or not targets:
         return "GATED"

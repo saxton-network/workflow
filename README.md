@@ -48,6 +48,7 @@ examples/
   deployment/manifest.toml
 scripts/
   agent-task.py
+  check-release-version.sh
   validate-repository.sh
   tests/test_agent_workflow.py
 .github/workflows/
@@ -113,7 +114,7 @@ Workflow v3 uses a compact coordinator-owned evidence.json. Detailed logs and re
 
 ## Validation
 
-The public repository intentionally has a small dependency surface. CI validates Python syntax, the Workflow v3 regression suite, example TOML manifests, and shell syntax. It requires no production credentials and performs no deployment.
+The public repository intentionally has a small dependency surface. CI validates Python syntax, the Workflow v3 regression suite, example TOML manifests, shell syntax, and the release version-tag rule. It requires no production credentials and performs no deployment.
 
 ## Releases
 
