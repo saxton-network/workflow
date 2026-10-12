@@ -27,4 +27,16 @@ for path in sorted(Path("examples").glob("*/manifest.toml")):
 PY
 
 bash -n scripts/validate-repository.sh
+bash -n scripts/check-release-version.sh
+
+for version in v0.1.0 v0.1.0-alpha.2 v1.20.3-rc.1 v2.0.0-x-y.7; do
+  bash scripts/check-release-version.sh "$version"
+done
+for version in 0.1.0 v1.2 v1.2.3.4 v01.2.3 v1.2.3- v1.2.3-alpha..1 v1.2.3-01 v1.2.3+build "v1.2.3 "; do
+  if bash scripts/check-release-version.sh "$version" 2>/dev/null; then
+    echo "FAIL: release version check accepted $version" >&2
+    exit 1
+  fi
+done
+echo "PASS: release version check"
 echo "PASS: workflow repository validation"

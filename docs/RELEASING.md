@@ -7,10 +7,10 @@ Releases are intentionally manual. A release should identify one exact commit th
 1. Merge the reviewed release candidate to `main`.
 2. Open **Actions → Publish release → Run workflow**.
 3. Select `main`.
-4. Enter a SemVer-style tag such as `v0.1.0-alpha.2`.
+4. Enter a `v`-prefixed SemVer 2.0.0 tag such as `v0.1.0-alpha.3`. Build metadata (`+...`) is not accepted; `scripts/check-release-version.sh` defines the exact rule.
 5. Leave **prerelease** enabled for experimental builds, or disable it only when intentionally publishing a normal release.
 
-The workflow refuses to publish from any ref other than `main`. It runs the repository validation gate against the exact checked-out commit before packaging anything.
+The workflow fails, rather than silently skipping, when dispatched from any ref other than `main`. It runs the repository validation gate against the exact checked-out commit before packaging anything.
 
 ## Artifacts
 
