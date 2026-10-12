@@ -29,6 +29,7 @@ The included scripts/agent-task.py helper is intentionally **read-only**. It val
 
 ~~~text
 AGENTS.md
+CONTRIBUTING.md
 agent-work/
   README.md
   WORKFLOW-SPEC.md
@@ -36,6 +37,8 @@ agent-work/
   RESULT-TEMPLATE.md
   EVIDENCE-MANIFEST.md
 docs/
+  AGENT-LIFECYCLE-AND-OBSERVABILITY.md
+  agent-worktrees.md
   DESIGN.md
   PILOT-HISTORY.md
   RELEASING.md
@@ -99,6 +102,10 @@ The live gate has three helper states:
 - **GATED**: required evidence is missing, invalid, stale, or failed.
 - **PREVIEW**: readiness PASS is proven, but there is no matching approval reference.
 - **READY**: evidence contains a matching approval reference. This is still only a coordinator handoff. The coordinator must verify the actual human approval and recheck mutable state before mutation.
+
+## Agent lifecycle direction
+
+docs/AGENT-LIFECYCLE-AND-OBSERVABILITY.md sets design requirements for future Workflow-managed agents: durable identity and lineage, bounded delegation, attributable resource use, and fail-closed orphan handling. These are forward-looking requirements. The current helper is read-only and enforces none of them; differences are tracked as implementation debt.
 
 ## Evidence
 
