@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import fnmatch
+import functools
 import hashlib
 import itertools
 import json
@@ -43,9 +44,10 @@ V3_KINDS = {
 DEPLOYMENT_KINDS = {"authority_promotion", "release_readiness", "live_deployment", "final_reconciliation"}
 SHA1 = re.compile(r"[0-9a-f]{40}\Z")
 SHA256 = re.compile(r"[0-9a-f]{64}\Z")
-WINDOWS_ABSOLUTE = re.compile(r"[A-Za-z]:\\")
+WINDOWS_DRIVE = re.compile(r"[A-Za-z]:")
+WINDOWS_ABSOLUTE = re.compile(r"[A-Za-z]:[\\/]|\\\\")
 URL_SCHEME = re.compile(r"[A-Za-z][A-Za-z0-9+.-]*://")
-MAX_RECURSIVE_SEGMENTS = 6
+MAX_PATTERN_EXPANSIONS = 6
 
 
 def _fail(message: str) -> None:
@@ -235,16 +237,17 @@ def _canonical_path(path: object) -> bool:
     """One spelling per file: a normalized repository, POSIX-absolute, or Windows-absolute path."""
     if not isinstance(path, str):
         return False
-    if WINDOWS_ABSOLUTE.match(path):
+    if WINDOWS_DRIVE.match(path):
+        # A Windows file is spelled C:\\dir\\file; C:/dir, C:dir, and mixed separators would alias it.
         rest = path[3:]
-        return "/" not in rest and _normalized_repo_path(rest.replace("\\", "/"))
+        return path[2:3] == "\\" and "/" not in rest and _normalized_repo_path(rest.replace("\\", "/"))
     return _normalized_repo_path(path[1:] if path.startswith("/") else path)
 
 
 def _path_key(path: str) -> str:
     """Comparison key for a canonical batch path, so Unicode or drive-case variants still collide."""
     key = unicodedata.normalize("NFC", path)
-    return key.casefold() if WINDOWS_ABSOLUTE.match(key) else key
+    return key.casefold() if WINDOWS_DRIVE.match(key) else key
 
 
 def _destination_key(destination: object) -> str | None:
@@ -253,50 +256,80 @@ def _destination_key(destination: object) -> str | None:
         return None
     key = unicodedata.normalize("NFC", destination)
     windows = bool(WINDOWS_ABSOLUTE.match(key))
+    if WINDOWS_DRIVE.match(key) and not windows and not URL_SCHEME.match(key):
+        # C:dir is relative to that drive's current directory, so it names no fixed location.
+        return None
+    scheme = None if windows else URL_SCHEME.match(key)
+    if scheme:
+        name = key[:scheme.end() - 3].lower()
+        authority, _slash, route = key[scheme.end():].partition("/")
+        if name == "file" and not authority:
+            key = "/" + route
+        else:
+            # Scheme and host are case-insensitive; the rest of a URL is compared as written.
+            path = re.split(r"[?#]", route, maxsplit=1)[0]
+            if not authority or any(segment in {".", ".."} for segment in path.split("/")):
+                return None
+            return f"{name}://{authority.lower()}/{route}"
     key = key.replace("\\", "/")
-    scheme = URL_SCHEME.match(key)
-    prefix, rest = (key[:scheme.end()], key[scheme.end():]) if scheme else ("", key)
-    if any(segment in {".", ".."} for segment in rest.split("/")):
+    if any(segment in {".", ".."} for segment in key.split("/")):
         return None
     # Repeated or trailing separators name the same location; a lone root keeps its slash.
-    rest = re.sub("/+", "/", rest)
-    rest = rest.rstrip("/") or rest[:1]
-    if not rest:
+    key = re.sub("/+", "/", key)
+    key = key.rstrip("/") or key[:1]
+    if not key:
         return None
-    return (prefix + rest).casefold() if windows else prefix + rest
+    # Drive and UNC paths are case-insensitive and never name the same place as a POSIX path.
+    return "windows:" + key.casefold() if windows else key
 
 
-def _pattern_spellings(pattern: str) -> set[str] | None:
-    """Globs a protected pattern stands for, or None if it has too many ** segments to expand."""
+@functools.lru_cache(maxsize=1024)
+def _pattern_spellings(pattern: str) -> frozenset[str] | None:
+    """Globs a protected pattern stands for, or None if it has too many [ and ** to expand."""
+    brackets = [index for index, char in enumerate(pattern) if char == "["]
+    recursive = [index for index, segment in enumerate(pattern.split("/")) if segment == "**"]
+    if len(brackets) + len(recursive) > MAX_PATTERN_EXPANSIONS:
+        return None
     spellings: set[str] = set()
-    # Brackets may name a literal directory such as pages/[id]/ as well as a character class.
-    for form in {pattern, pattern.replace("[", "[[]")}:
-        segments = form.split("/")
+    # Each [ may open a character class or be a literal bracket, as in pages/[id]/[0-9].json.
+    for literal in itertools.product((False, True), repeat=len(brackets)):
+        escaped = {index for index, is_literal in zip(brackets, literal) if is_literal}
+        segments = "".join("[[]" if index in escaped else char for index, char in enumerate(pattern)).split("/")
         recursive = [index for index, segment in enumerate(segments) if segment == "**"]
-        if len(recursive) > MAX_RECURSIVE_SEGMENTS:
-            return None
         # A ** segment also stands for no directories at all.
         for dropped in itertools.product((False, True), repeat=len(recursive)):
             skip = {index for index, drop in zip(recursive, dropped) if drop}
             spellings.add("/".join(segment for index, segment in enumerate(segments) if index not in skip))
-    return spellings
+    return frozenset(spellings)
+
+
+@functools.lru_cache(maxsize=1024)
+def _protected_matcher(pattern: str) -> tuple[frozenset[str], tuple[str, ...], re.Pattern[str]] | None:
+    """Literal paths, subtree prefixes, and one compiled glob for a pattern; None protects every path."""
+    spellings = _pattern_spellings(unicodedata.normalize("NFC", pattern))
+    if spellings is None:
+        return None
+    literals: set[str] = set()
+    prefixes: list[str] = []
+    globs: list[str] = []
+    for spelling in spellings:
+        base = spelling.rstrip("/")
+        if not base:
+            return None
+        literals.update({spelling, base})
+        prefixes.append(base + "/")
+        globs += [fnmatch.translate(base), fnmatch.translate(base + "/*")]
+    return frozenset(literals), tuple(prefixes), re.compile("|".join(f"(?:{glob})" for glob in globs))
 
 
 def _matches_protected(path: str, pattern: str) -> bool:
     """Literal path, fnmatch glob (where * also crosses / and ** may be empty), or a / subtree."""
-    path, pattern = unicodedata.normalize("NFC", path), unicodedata.normalize("NFC", pattern)
-    spellings = _pattern_spellings(pattern)
-    if spellings is None:
+    matcher = _protected_matcher(pattern)
+    if matcher is None:
         return True
-    for spelling in spellings:
-        base = spelling.rstrip("/")
-        if not base:
-            return True
-        if path in {spelling, base} or path.startswith(base + "/"):
-            return True
-        if fnmatch.fnmatchcase(path, base) or fnmatch.fnmatchcase(path, base + "/*"):
-            return True
-    return False
+    literals, prefixes, glob = matcher
+    path = unicodedata.normalize("NFC", path)
+    return path in literals or path.startswith(prefixes) or glob.match(path) is not None
 
 
 def classify_divergence(*, identical: bool, object_present: bool = False,

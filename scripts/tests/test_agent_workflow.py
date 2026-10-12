@@ -787,18 +787,22 @@ class WorkflowV3Tests(unittest.TestCase):
             agent_task.batch_fingerprint(reordered),
         )
 
-    def test_documented_changed_paths_command_reports_renamed_protected_files(self) -> None:
-        documented = ["git", "diff", "--no-renames", "--name-only", "-z"]
+    def test_documented_changed_paths_command_reports_every_changed_path(self) -> None:
+        documented = ["git", "diff", "--no-renames", "--no-relative", "--ignore-submodules=none", "--name-only", "-z"]
         manifest_doc = (ROOT / "agent-work" / "EVIDENCE-MANIFEST.md").read_text(encoding="utf-8")
         self.assertIn(" ".join(documented), manifest_doc)
         if shutil.which("git") is None:
             self.skipTest("git is not installed")
 
-        env = {**os.environ, "GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1"}
+        # Inherited GIT_DIR, GIT_INDEX_FILE, and similar would point git at the caller's repository.
+        env = {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
+        env.update(GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM="1")
         identity = ["-c", "user.name=test", "-c", "user.email=test@example.invalid", "-c", "commit.gpgsign=false"]
+        # Settings a coordinator's own git config may carry; the documented command must override them.
+        hostile = ["-c", "diff.relative=true", "-c", "diff.ignoreSubmodules=all", "-c", "diff.renames=copies"]
 
-        def git(repo: Path, *args: str) -> str:
-            return subprocess.run(["git", *identity, *args], cwd=repo, env=env, check=True,
+        def git(cwd: Path, *args: str) -> str:
+            return subprocess.run(["git", *identity, *args], cwd=cwd, env=env, check=True,
                                   capture_output=True, text=True).stdout
 
         with tempfile.TemporaryDirectory() as directory:
@@ -806,28 +810,40 @@ class WorkflowV3Tests(unittest.TestCase):
             git(repo, "init", "-q")
             (repo / "scripts").mkdir()
             (repo / "scripts" / "install.sh").write_text("echo install\n", encoding="utf-8")
+            (repo / "sub").mkdir()
+            (repo / "sub" / "file.txt").write_text("one\n", encoding="utf-8")
             git(repo, "add", "-A")
+            git(repo, "update-index", "--add", "--cacheinfo", f"160000,{'1' * 40},vendor/tool")
             git(repo, "commit", "-q", "-m", "source")
             source = git(repo, "rev-parse", "HEAD").strip()
+
             (repo / "docs").mkdir()
             git(repo, "mv", "scripts/install.sh", "docs/install-old.sh")
-            git(repo, "commit", "-q", "-m", "move")
+            (repo / "sub" / "file.txt").write_text("two\n", encoding="utf-8")
+            git(repo, "add", "sub/file.txt")
+            git(repo, "update-index", "--cacheinfo", f"160000,{'2' * 40},vendor/tool")
+            git(repo, "commit", "-q", "-m", "descendant")
 
             def changed(command: list[str]) -> list[str]:
-                output = subprocess.run([*command, source, "HEAD"], cwd=repo, env=env, check=True,
-                                        capture_output=True, text=True).stdout
+                output = subprocess.run([command[0], *hostile, *command[1:], source, "HEAD"], cwd=repo / "sub",
+                                        env=env, check=True, capture_output=True, text=True).stdout
                 return [path for path in output.split("\0") if path]
 
             documented_paths = changed(documented)
-            rename_detecting_paths = changed(["git", "diff", "--name-only", "-z"])
+            default_paths = changed(["git", "diff", "--name-only", "-z"])
 
+        self.assertEqual(
+            sorted(documented_paths),
+            ["docs/install-old.sh", "scripts/install.sh", "sub/file.txt", "vendor/tool"],
+        )
         manifest = self.deploy_manifest()
         evidence = self.evidence()
         self.additive_descendant(evidence, documented_paths, ["services/**"])
         self.assertEqual(self.gate(manifest, evidence), "GATED")
 
-        # The default rename detection hides the moved-away file; this is why the flag is required.
-        self.assertNotIn("scripts/install.sh", rename_detecting_paths)
+        # Without the flags, these settings hide the moved-away file, the submodule, and the real paths.
+        self.assertNotIn("scripts/install.sh", default_paths)
+        self.assertNotIn("vendor/tool", default_paths)
 
     def test_recursive_and_bracketed_patterns_cover_their_paths(self) -> None:
         base = dict(
@@ -886,8 +902,12 @@ class WorkflowV3Tests(unittest.TestCase):
 
         for first, second in (
             ("C:\\srv\\app", "c:\\SRV\\app\\"),
+            ("C:\\srv\\app", "C:/SRV/app"),
+            ("\\\\Server\\Share\\app", "\\\\server\\share\\app"),
             ("/srv/caf\u00e9", "/srv/cafe\u0301"),
-            ("https://deploy.example/api", "https://deploy.example/api/"),
+            ("HTTPS://Deploy.Example/api", "https://deploy.example/api"),
+            ("https://deploy.example", "https://deploy.example/"),
+            ("file:///srv/app", "/srv/app"),
         ):
             evidence = self.evidence()
             evidence["records"][2]["frozenBatch"]["deploymentTargets"] = [
@@ -898,7 +918,7 @@ class WorkflowV3Tests(unittest.TestCase):
             with self.subTest(first=first, second=second):
                 self.assertEqual(self.gate(manifest, evidence), "GATED")
 
-        for destination in ("C:\\srv\\.\\app", "https://deploy.example/../api", "   "):
+        for destination in ("C:\\srv\\.\\app", "https://deploy.example/../api", "   ", "C:srv\\app", "https:///api"):
             evidence = self.evidence()
             evidence["records"][2]["frozenBatch"]["deploymentTargets"] = [
                 {"destination": destination, "mode": None}
@@ -925,7 +945,8 @@ class WorkflowV3Tests(unittest.TestCase):
         self.refingerprint(evidence)
         self.assertEqual(self.gate(manifest, evidence), "READY")
 
-        for path in ("C:\\ProgramData\\app\\", "C:\\ProgramData/app.json", "C:\\a\\..\\b"):
+        for path in ("C:\\ProgramData\\app\\", "C:\\ProgramData/app.json", "C:\\a\\..\\b",
+                     "C:/ProgramData/app.json", "C:ProgramData\\app.json"):
             evidence = self.evidence()
             evidence["records"][2]["frozenBatch"]["deploymentConfiguration"].append(
                 {"path": path, "sha256": "1" * 64}
@@ -934,8 +955,63 @@ class WorkflowV3Tests(unittest.TestCase):
             with self.subTest(path=path):
                 self.assertEqual(self.gate(manifest, evidence), "GATED")
 
+    def test_distinct_locations_do_not_collide(self) -> None:
+        manifest = self.deploy_manifest()
+        for first, second in (
+            ("s3://bucket/a//b", "s3://bucket/a/b"),
+            ("https://deploy.example/api", "https://deploy.example/api/"),
+            ("https://deploy.example/api?q=1/", "https://deploy.example/api?q=1"),
+            ("\\\\server\\share\\app", "/server/share/app"),
+            ("/srv/App", "/srv/app"),
+        ):
+            evidence = self.evidence()
+            evidence["records"][2]["frozenBatch"]["deploymentTargets"] = [
+                {"destination": first, "mode": None},
+                {"destination": second, "mode": None},
+            ]
+            self.refingerprint(evidence)
+            with self.subTest(first=first, second=second):
+                self.assertEqual(self.gate(manifest, evidence), "READY")
+
+        evidence = self.evidence()
+        evidence["records"][2]["frozenBatch"]["deploymentTargets"] = [
+            {"destination": "https://deploy.example/a?next=/../b", "mode": None}
+        ]
+        self.refingerprint(evidence)
+        self.assertEqual(self.gate(manifest, evidence), "READY")
+
+    def test_mixed_literal_and_class_brackets_are_protected(self) -> None:
+        base = dict(
+            identical=False,
+            object_present=True,
+            ancestry_proven=True,
+            changed_paths_inspected=True,
+            deployment_inputs_unchanged=True,
+        )
+        for path, pattern, expected in (
+            ("app/[slug]/5.json", "app/[slug]/[0-9].json", "protected_change"),
+            ("app/s/5.json", "app/[slug]/[0-9].json", "protected_change"),
+            ("app/[slug]/x.json", "app/[slug]/[0-9].json", "known_additive"),
+            ("anything.txt", "[a]/[b]/[c]/[d]/[e]/[f]/**/x", "protected_change"),
+        ):
+            with self.subTest(path=path, pattern=pattern):
+                self.assertEqual(
+                    agent_task.classify_divergence(
+                        **base, changed_paths=[path], deployment_input_paths=[pattern]
+                    ),
+                    expected,
+                )
+
     def test_batch_path_aliases_and_conflicting_roles_are_gated(self) -> None:
         manifest = self.deploy_manifest()
+
+        evidence = self.evidence()
+        evidence["records"][2]["frozenBatch"]["deploymentConfiguration"] += [
+            {"path": "C:\\App\\settings.json", "sha256": "3" * 64},
+            {"path": "c:\\app\\SETTINGS.json", "sha256": "4" * 64},
+        ]
+        self.refingerprint(evidence)
+        self.assertEqual(self.gate(manifest, evidence), "GATED")
 
         evidence = self.evidence()
         evidence["records"][2]["frozenBatch"]["deploymentConfiguration"] += [
@@ -977,9 +1053,12 @@ class WorkflowV3Tests(unittest.TestCase):
             with patch.object(agent_task, "ROOT", root):
                 self.assertEqual(agent_task.live_gate_state(manifest), "GATED")
 
+        # A record the gate never reads still has to be well formed.
         evidence = self.evidence()
-        del evidence["records"][0]["taskStatus"]
+        evidence["records"].append({"taskId": "K"})
         self.assertEqual(self.gate(manifest, evidence), "GATED")
+        evidence["records"][-1]["taskStatus"] = None
+        self.assertEqual(self.gate(manifest, evidence), "READY")
 
 
 if __name__ == "__main__":
