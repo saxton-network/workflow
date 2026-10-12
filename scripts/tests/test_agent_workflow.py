@@ -8,6 +8,7 @@ import os
 import shutil
 import subprocess
 import tempfile
+import time
 import unittest
 from contextlib import redirect_stdout
 from pathlib import Path
@@ -788,15 +789,19 @@ class WorkflowV3Tests(unittest.TestCase):
         )
 
     def test_documented_changed_paths_command_reports_every_changed_path(self) -> None:
-        documented = ["git", "diff", "--no-renames", "--no-relative", "--ignore-submodules=none", "--name-only", "-z"]
+        documented = ["git", "--no-replace-objects", "diff", "--no-renames", "--no-relative",
+                      "--ignore-submodules=none", "--name-only", "-z"]
         manifest_doc = (ROOT / "agent-work" / "EVIDENCE-MANIFEST.md").read_text(encoding="utf-8")
         self.assertIn(" ".join(documented), manifest_doc)
         if shutil.which("git") is None:
             self.skipTest("git is not installed")
 
-        # Inherited GIT_DIR, GIT_INDEX_FILE, and similar would point git at the caller's repository.
+        # Inherited GIT_DIR, GIT_INDEX_FILE, and similar would point git at the caller's repository,
+        # and the caller's XDG ignore or attributes files would change what git adds.
+        home = tempfile.TemporaryDirectory()
+        self.addCleanup(home.cleanup)
         env = {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
-        env.update(GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM="1")
+        env.update(GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM="1", HOME=home.name, XDG_CONFIG_HOME=home.name)
         identity = ["-c", "user.name=test", "-c", "user.email=test@example.invalid", "-c", "commit.gpgsign=false"]
         # Settings a coordinator's own git config may carry; the documented command must override them.
         hostile = ["-c", "diff.relative=true", "-c", "diff.ignoreSubmodules=all", "-c", "diff.renames=copies"]
@@ -823,6 +828,9 @@ class WorkflowV3Tests(unittest.TestCase):
             git(repo, "add", "sub/file.txt")
             git(repo, "update-index", "--cacheinfo", f"160000,{'2' * 40},vendor/tool")
             git(repo, "commit", "-q", "-m", "descendant")
+            # A replace ref can make the descendant read as an innocuous commit.
+            innocuous = git(repo, "commit-tree", f"{source}^{{tree}}", "-p", source, "-m", "innocuous").strip()
+            git(repo, "replace", "HEAD", innocuous)
 
             def changed(command: list[str]) -> list[str]:
                 output = subprocess.run([command[0], *hostile, *command[1:], source, "HEAD"], cwd=repo / "sub",
@@ -841,9 +849,10 @@ class WorkflowV3Tests(unittest.TestCase):
         self.additive_descendant(evidence, documented_paths, ["services/**"])
         self.assertEqual(self.gate(manifest, evidence), "GATED")
 
-        # Without the flags, these settings hide the moved-away file, the submodule, and the real paths.
+        # Without the flags, the replace ref and these settings hide every real change.
         self.assertNotIn("scripts/install.sh", default_paths)
         self.assertNotIn("vendor/tool", default_paths)
+        self.assertNotIn("sub/file.txt", default_paths)
 
     def test_recursive_and_bracketed_patterns_cover_their_paths(self) -> None:
         base = dict(
@@ -1059,6 +1068,82 @@ class WorkflowV3Tests(unittest.TestCase):
         self.assertEqual(self.gate(manifest, evidence), "GATED")
         evidence["records"][-1]["taskStatus"] = None
         self.assertEqual(self.gate(manifest, evidence), "READY")
+
+    def destinations_gate(self, *destinations: str) -> str:
+        evidence = self.evidence()
+        evidence["records"][2]["frozenBatch"]["deploymentTargets"] = [
+            {"destination": destination, "mode": None} for destination in destinations
+        ]
+        self.refingerprint(evidence)
+        return self.gate(self.deploy_manifest(), evidence)
+
+    def test_url_destinations_parse_host_and_reject_backslashes(self) -> None:
+        for destinations in (
+            ("https://deploy.example/app\\..\\api", "https://deploy.example/api"),
+            ("https://deploy.example/a\\..\\..\\etc",),
+            ("https://deploy.example\\..\\etc",),
+            ("https://@/x",),
+            ("https://:443/x",),
+            ("https://?q",),
+            ("https://[]/x",),
+            ("https://deploy.example?q=1", "https://deploy.example/?q=1"),
+            ("https://Deploy.Example:8443/x", "https://deploy.example:8443/x"),
+            ("file://localhost/srv/app", "/srv/app"),
+            ("unix:///run/app.sock", "unix:///run//app.sock/"),
+        ):
+            with self.subTest(destinations=destinations):
+                self.assertEqual(self.destinations_gate(*destinations), "GATED")
+
+        for destinations in (
+            ("https://deploy.example?token=ABC", "https://deploy.example?token=abc"),
+            ("https://Alice@deploy.example/x", "https://alice@deploy.example/x"),
+            ("https://deploy.example?next=/../b",),
+            ("unix:///var/run/docker.sock",),
+            ("file:///srv/app",),
+            ("https://[::1]:8443/x",),
+            ("unix:///run/app.sock", "/run/app.sock"),
+        ):
+            with self.subTest(distinct=destinations):
+                self.assertEqual(self.destinations_gate(*destinations), "READY")
+
+    def test_windows_aliasing_spellings_are_gated(self) -> None:
+        for destinations in (
+            ("C:\\app", "C:\\app."),
+            ("C:\\app", "C:\\app "),
+            ("C:\\app", "\\\\?\\C:\\app"),
+            ("\\\\.\\pipe\\deploy",),
+            ("C:\\app\\data::$DATA",),
+        ):
+            with self.subTest(destinations=destinations):
+                self.assertEqual(self.destinations_gate(*destinations), "GATED")
+
+        manifest = self.deploy_manifest()
+        for alias in ("C:\\App\\settings.json.", "C:\\App\\settings.json ", "C:\\App\\settings.json::$DATA"):
+            evidence = self.evidence()
+            evidence["records"][2]["frozenBatch"]["deploymentConfiguration"] += [
+                {"path": "C:\\App\\settings.json", "sha256": "3" * 64},
+                {"path": alias, "sha256": "4" * 64},
+            ]
+            self.refingerprint(evidence)
+            with self.subTest(alias=alias):
+                self.assertEqual(self.gate(manifest, evidence), "GATED")
+
+    def test_many_protected_patterns_stay_fast(self) -> None:
+        patterns = [f"service{index}/[a]/**/x" for index in range(1500)]
+        paths = [f"docs/page{index}.md" for index in range(100)]
+        started = time.perf_counter()
+        result = agent_task.classify_divergence(
+            identical=False,
+            object_present=True,
+            ancestry_proven=True,
+            changed_paths_inspected=True,
+            deployment_inputs_unchanged=True,
+            changed_paths=paths,
+            deployment_input_paths=patterns,
+        )
+        self.assertEqual(result, "known_additive")
+        # Rebuilding matchers per path took tens of seconds here; building them once takes well under one.
+        self.assertLess(time.perf_counter() - started, 10)
 
 
 if __name__ == "__main__":
