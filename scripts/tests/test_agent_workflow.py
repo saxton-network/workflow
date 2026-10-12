@@ -373,6 +373,16 @@ class WorkflowV3Tests(unittest.TestCase):
                     agent_task.batch_fingerprint(reordered),
                 )
 
+    def test_frozen_batch_requires_at_least_one_validator(self) -> None:
+        manifest = self.deploy_manifest()
+        evidence = self.evidence()
+        batch = evidence["records"][2]["frozenBatch"]
+        batch["validators"] = []
+        fingerprint = agent_task.batch_fingerprint(batch)
+        evidence["records"][2]["frozenBatchFingerprint"] = fingerprint
+        evidence["records"][3]["frozenBatchFingerprint"] = fingerprint
+        self.assertEqual(self.gate(manifest, evidence), "GATED")
+
     def test_batch_fingerprint_is_order_independent_for_declared_lists(self) -> None:
         batch = self.evidence()["records"][2]["frozenBatch"]
         batch["deploymentConfiguration"].append(
@@ -585,6 +595,43 @@ class WorkflowV3Tests(unittest.TestCase):
                 self.assertNotEqual(
                     agent_task.classify_divergence(**{**base, **edit}),
                     "known_additive",
+                )
+
+    def test_divergence_rejects_unnormalized_paths(self) -> None:
+        base = dict(
+            identical=False,
+            object_present=True,
+            ancestry_proven=True,
+            changed_paths_inspected=True,
+            deployment_inputs_unchanged=True,
+            changed_paths=["docs/readme.md"],
+            deployment_input_paths=["services/**", "deploy/"],
+        )
+        self.assertEqual(agent_task.classify_divergence(**base), "known_additive")
+        self.assertEqual(
+            agent_task.classify_divergence(**{**base, "changed_paths": ["deploy/run.sh"]}),
+            "protected_change",
+        )
+        for path in (
+            "./services/app/server.py",
+            "docs/../services/app/server.py",
+            "services//app/server.py",
+            "/services/app/server.py",
+            "services\\app\\server.py",
+            "",
+        ):
+            with self.subTest(changed_path=path):
+                self.assertEqual(
+                    agent_task.classify_divergence(**{**base, "changed_paths": [path]}),
+                    "unknown",
+                )
+        for pattern in ("./services/**", "../services/**", "/services/**", ""):
+            with self.subTest(pattern=pattern):
+                self.assertEqual(
+                    agent_task.classify_divergence(
+                        **{**base, "deployment_input_paths": [pattern]}
+                    ),
+                    "unknown",
                 )
 
 
