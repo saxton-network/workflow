@@ -16,6 +16,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: release-${{ inputs.version }}
+  cancel-in-progress: false
+
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -58,6 +62,17 @@ jobs:
           git archive --format=zip --prefix="workflow-${VERSION}/" HEAD -o "$ARCHIVE"
           sha256sum "$ARCHIVE" > "$ARCHIVE.sha256"
 
+      # Creating the ref fails with 422 if the tag already exists, so a tag pushed
+      # after the check above can never be reused for this commit's archive.
+      - name: Create release tag at the validated commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
+            -f ref="refs/tags/$VERSION" \
+            -f sha="$GITHUB_SHA" >/dev/null
+
       - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -73,7 +88,18 @@ jobs:
             "$ARCHIVE" \
             "$ARCHIVE.sha256" \
             --repo "$GITHUB_REPOSITORY" \
-            --target "$GITHUB_SHA" \
+            --verify-tag \
             --title "Workflow ${VERSION}" \
             --generate-notes \
             "${release_args[@]}"
+
+      - name: Verify release tag target
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          tagged="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$VERSION" --jq .object.sha)"
+          if [[ "$tagged" != "$GITHUB_SHA" ]]; then
+            echo "Tag $VERSION points at $tagged, not the packaged commit $GITHUB_SHA" >&2
+            exit 1
+          fi
