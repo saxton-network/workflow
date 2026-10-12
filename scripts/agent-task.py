@@ -75,11 +75,13 @@ def validate_manifest(data: dict) -> None:
         _fail("v3 task IDs must be nonempty strings")
     if set(tasks) != set(status):
         _fail("v3 task and status IDs must match")
+    if any(not isinstance(value, str) for value in status.values()):
+        _fail("v3 status values must be strings")
     terminal_task = workflow.get("terminal_task")
     if not isinstance(terminal_task, str) or terminal_task not in tasks:
         _fail("v3 workflow terminal_task must name a known task")
     for task_id, task in tasks.items():
-        if not isinstance(task, dict) or task.get("kind") not in V3_KINDS:
+        if not isinstance(task, dict) or not isinstance(task.get("kind"), str) or task["kind"] not in V3_KINDS:
             _fail(f"task {task_id} has an unsupported or missing kind")
         if any(not isinstance(task.get(key), str) or not task[key] for key in ("name", "branch", "file")):
             _fail(f"task {task_id} needs name, branch, and file")
@@ -89,7 +91,7 @@ def validate_manifest(data: dict) -> None:
             len(deps) != len(set(deps)) or any(dep not in tasks or dep == task_id for dep in deps)):
             _fail(f"task {task_id} has invalid dependencies")
         if not isinstance(required, dict) or not set(required).issubset(deps) or any(
-            value not in {"complete", "passed", "findings", "failed", "skipped", "blocked"}
+            not isinstance(value, str) or value not in {"complete", "passed", "findings", "failed", "skipped", "blocked"}
             for value in required.values()
         ):
             _fail(f"task {task_id} has invalid required_status")
@@ -189,27 +191,24 @@ def validate_manifest(data: dict) -> None:
         _fail("final reconciliation must require successful live deployment")
 
 
-def _canonical_batch(value: object) -> bytes:
-    """Canonical JSON, including path-sorted entry arrays, for the approved batch."""
-    def entry_key(field: str):
-        # Break ties on the whole entry so the encoding never depends on input order.
-        return lambda part: (part[field], json.dumps(part, sort_keys=True, separators=(",", ":"), ensure_ascii=False))
+BATCH_PATH_LISTS = ("deploymentConfiguration", "validators", "installedScripts")
 
-    def ordered(item: object) -> object:
-        if isinstance(item, dict):
-            return {key: ordered(part) for key, part in item.items()}
-        if isinstance(item, list):
-            parts = [ordered(part) for part in item]
-            if parts and all(isinstance(part, dict) and isinstance(part.get("path"), str) for part in parts):
-                parts.sort(key=entry_key("path"))
-            elif parts and all(
-                isinstance(part, dict) and isinstance(part.get("destination"), str)
-                for part in parts
-            ):
-                parts.sort(key=entry_key("destination"))
-            return parts
-        return item
-    return json.dumps(ordered(value), sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False).encode("utf-8")
+
+def _canonical_json(value: object) -> str:
+    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
+
+
+def _canonical_batch(batch: dict) -> bytes:
+    """Canonical JSON for the approved batch; only the declared arrays are reordered."""
+    record = dict(batch)
+    sorted_arrays = [(key, "path") for key in BATCH_PATH_LISTS] + [("deploymentTargets", "destination")]
+    for key, field in sorted_arrays:
+        entries = record.get(key)
+        if isinstance(entries, list) and all(isinstance(entry, dict) and isinstance(entry.get(field), str)
+                                             for entry in entries):
+            # Break ties on the whole entry so the encoding never depends on input order.
+            record[key] = sorted(entries, key=lambda entry: (entry[field], _canonical_json(entry)))
+    return _canonical_json(record).encode("utf-8")
 
 
 def batch_fingerprint(batch: dict) -> str:
@@ -223,6 +222,28 @@ def _normalized_repo_path(path: object, *, allow_trailing_slash: bool = False) -
     if allow_trailing_slash and path.endswith("/"):
         path = path[:-1]
     return all(segment not in {"", ".", ".."} for segment in path.split("/"))
+
+
+def _canonical_path(path: object) -> bool:
+    """One spelling per location: like a normalized repository path, optionally absolute."""
+    return isinstance(path, str) and _normalized_repo_path(path[1:] if path.startswith("/") else path)
+
+
+def _canonical_destination(destination: object) -> bool:
+    # Destinations may be URLs or remote specs, so only reject spellings that alias a filesystem path.
+    return (isinstance(destination, str) and bool(destination) and not destination.endswith("/") and
+            all(segment not in {".", ".."} for segment in destination.split("/")))
+
+
+def _matches_protected(path: str, pattern: str) -> bool:
+    """Literal path, fnmatch glob (where * also crosses /), or a trailing / meaning the whole subtree."""
+    base = pattern.rstrip("/")
+    if path in {pattern, base} or path.startswith(base + "/"):
+        return True
+    if fnmatch.fnmatchcase(path, base) or fnmatch.fnmatchcase(path, base + "/*"):
+        return True
+    # A leading **/ also covers the repository root.
+    return base.startswith("**/") and _matches_protected(path, base[3:])
 
 
 def classify_divergence(*, identical: bool, object_present: bool = False,
@@ -244,11 +265,18 @@ def classify_divergence(*, identical: bool, object_present: bool = False,
         isinstance(changed_paths, list) and all(_normalized_repo_path(path) for path in changed_paths) and
         isinstance(deployment_input_paths, list) and deployment_input_paths and
         all(_normalized_repo_path(path, allow_trailing_slash=True) for path in deployment_input_paths)):
-        if any(fnmatch.fnmatchcase(path, pattern) or path.startswith(pattern.rstrip("/") + "/")
-               for path in changed_paths for pattern in deployment_input_paths):
+        if any(_matches_protected(path, pattern) for path in changed_paths for pattern in deployment_input_paths):
             return "protected_change"
         return "known_additive"
     return "unknown"
+
+
+def _unique_keys(pairs: list[tuple[str, object]]) -> dict:
+    """Reject duplicate JSON keys, which different readers resolve differently."""
+    keys = [key for key, _value in pairs]
+    if len(keys) != len(set(keys)):
+        raise ValueError("duplicate key in evidence JSON")
+    return dict(pairs)
 
 
 def _read_evidence(data: dict, evidence_path: Path | None) -> dict | None:
@@ -262,11 +290,17 @@ def _read_evidence(data: dict, evidence_path: Path | None) -> dict | None:
         if path.resolve() != expected_path.resolve():
             return None
         with path.open(encoding="utf-8") as handle:
-            evidence = json.load(handle)
-    except (KeyError, OSError, ValueError, TypeError):
+            evidence = json.load(handle, object_pairs_hook=_unique_keys)
+    except (KeyError, OSError, ValueError, TypeError, RecursionError):
         return None
-    return evidence if (isinstance(evidence, dict) and evidence.get("workflowVersion") == 3 and
-                        evidence.get("workflowId") == phase and isinstance(evidence.get("records"), list)) else None
+    if not (isinstance(evidence, dict) and evidence.get("workflowVersion") == 3 and
+            evidence.get("workflowId") == phase and isinstance(evidence.get("records"), list)):
+        return None
+    if any(not isinstance(record, dict) or not isinstance(record.get("taskId"), str) or
+           not isinstance(record.get("taskStatus"), (str, type(None)))
+           for record in evidence["records"]):
+        return None
+    return evidence
 
 
 def live_gate_state(data: dict, evidence_path: Path | None = None, *, allow_completed: bool = False) -> str:
@@ -345,10 +379,10 @@ def live_gate_state(data: dict, evidence_path: Path | None = None, *, allow_comp
         return "GATED"
     if not isinstance(batch.get("deployableArtifactSha256"), str) or not SHA256.fullmatch(batch["deployableArtifactSha256"]):
         return "GATED"
-    for key in ("deploymentConfiguration", "validators", "installedScripts"):
+    for key in BATCH_PATH_LISTS:
         entries = batch[key]
         if not isinstance(entries, list) or any(
-            not isinstance(entry, dict) or not isinstance(entry.get("path"), str) or not entry["path"] or
+            not isinstance(entry, dict) or not _canonical_path(entry.get("path")) or
             not isinstance(entry.get("sha256"), str) or not SHA256.fullmatch(entry["sha256"])
             for entry in entries
         ) or len({entry["path"] for entry in entries}) != len(entries):
@@ -362,7 +396,7 @@ def live_gate_state(data: dict, evidence_path: Path | None = None, *, allow_comp
         return "GATED"
     for target in targets:
         if (not isinstance(target, dict) or
-            not isinstance(target.get("destination"), str) or not target["destination"] or
+            not _canonical_destination(target.get("destination")) or
             "mode" not in target):
             return "GATED"
         mode = target["mode"]
@@ -381,7 +415,7 @@ def live_gate_state(data: dict, evidence_path: Path | None = None, *, allow_comp
     try:
         if batch_fingerprint(batch) != fingerprint:
             return "GATED"
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, RecursionError):
         return "GATED"
     divergence = record.get("gitDivergence")
     if not isinstance(divergence, dict) or divergence.get("authoritySha") != source:
@@ -399,6 +433,11 @@ def live_gate_state(data: dict, evidence_path: Path | None = None, *, allow_comp
             not isinstance(divergence.get("proofEvidenceSha256"), str) or
             not SHA256.fullmatch(divergence["proofEvidenceSha256"])):
             return "GATED"
+    protected = divergence.get("deploymentInputPaths")
+    # An empty declaration stays invalid; batch files only add to a real one.
+    if isinstance(protected, list) and protected:
+        protected = protected + [entry["path"] for key in BATCH_PATH_LISTS for entry in batch[key]
+                                 if _normalized_repo_path(entry["path"])]
     if classify_divergence(
         identical=divergence.get("identical") is True,
         object_present=divergence.get("objectPresent") is True,
@@ -407,7 +446,7 @@ def live_gate_state(data: dict, evidence_path: Path | None = None, *, allow_comp
         deployment_inputs_unchanged=divergence.get("deploymentInputsUnchanged") is True,
         destructive=divergence.get("destructive") is True,
         changed_paths=divergence.get("changedPaths"),
-        deployment_input_paths=divergence.get("deploymentInputPaths"),
+        deployment_input_paths=protected,
     ) not in {"identical", "known_additive"}:
         return "GATED"
     live_attempts = [item for item in records[readiness_index + 1:] if isinstance(item, dict)

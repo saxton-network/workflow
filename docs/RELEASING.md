@@ -19,7 +19,9 @@ The release workflow creates:
 - `workflow-<version>.zip`, produced with `git archive` from the exact release commit;
 - `workflow-<version>.zip.sha256`, containing its SHA-256 checksum.
 
-GitHub also creates the release tag at the exact workflow commit. Existing tags are rejected rather than moved or overwritten.
+The workflow creates the release tag itself at the exact workflow commit, using a single API call that fails if the tag already exists, then publishes the release against that tag and verifies the tag still points at the packaged commit. Existing tags are rejected rather than moved or overwritten, and concurrent runs for the same version are serialized.
+
+If a run fails after creating the tag but before publishing, the tag remains and a rerun is refused. Inspect the tag, delete it deliberately if it points at the intended commit and has no release, and dispatch again.
 
 ## What the workflow does not prove
 
