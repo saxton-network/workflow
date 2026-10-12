@@ -139,14 +139,38 @@ class WorkflowV3Tests(unittest.TestCase):
             )
         return {"workflowVersion": 3, "workflowId": "example", "records": records}
 
-    def gate(self, manifest: dict, evidence: dict) -> str:
+    def gate(self, manifest: dict, evidence: dict | str) -> str:
+        raw = evidence if isinstance(evidence, str) else json.dumps(evidence)
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             path = root / manifest["workflow"]["evidence_manifest"]
             path.parent.mkdir(parents=True)
-            path.write_text(json.dumps(evidence), encoding="utf-8")
+            path.write_text(raw, encoding="utf-8")
             with patch.object(agent_task, "ROOT", root):
                 return agent_task.live_gate_state(manifest)
+
+    def refingerprint(self, evidence: dict) -> None:
+        fingerprint = agent_task.batch_fingerprint(evidence["records"][2]["frozenBatch"])
+        evidence["records"][2]["frozenBatchFingerprint"] = fingerprint
+        evidence["records"][3]["frozenBatchFingerprint"] = fingerprint
+
+    def additive_descendant(self, evidence: dict, changed: list[str], protected: list[str]) -> None:
+        evidence["records"][2]["gitDivergence"] = {
+            "identical": False,
+            "objectPresent": True,
+            "ancestryProven": True,
+            "changedPathsInspected": True,
+            "deploymentInputsUnchanged": True,
+            "changedPaths": changed,
+            "deploymentInputPaths": protected,
+            "authoritySha": self.SOURCE,
+            "otherSha": self.REVIEW_RESULT,
+            "objectSha": self.REVIEW_RESULT,
+            "ancestryAncestorSha": self.SOURCE,
+            "ancestryDescendantSha": self.REVIEW_RESULT,
+            "proofEvidencePath": "agent-work/example/results/refs.log",
+            "proofEvidenceSha256": "1" * 64,
+        }
 
     def test_v2_compatibility_is_left_untouched(self) -> None:
         agent_task.validate_manifest({"workflow_version": 2})
@@ -633,6 +657,132 @@ class WorkflowV3Tests(unittest.TestCase):
                     ),
                     "unknown",
                 )
+
+    def test_protected_pattern_forms_cover_their_paths(self) -> None:
+        base = dict(
+            identical=False,
+            object_present=True,
+            ancestry_proven=True,
+            changed_paths_inspected=True,
+            deployment_inputs_unchanged=True,
+        )
+        for path, pattern in (
+            ("services/app/server.py", "services/**/"),
+            ("deploy/prod/run.sh", "deploy/*/"),
+            ("Dockerfile", "**/Dockerfile"),
+            ("ops/Dockerfile", "**/Dockerfile"),
+            ("pages/[id].tsx", "pages/[id].tsx"),
+            ("pages/[id]/view.tsx", "pages/[id]/"),
+            ("deploy/run.sh", "deploy"),
+        ):
+            with self.subTest(path=path, pattern=pattern):
+                self.assertEqual(
+                    agent_task.classify_divergence(
+                        **base, changed_paths=[path], deployment_input_paths=[pattern]
+                    ),
+                    "protected_change",
+                )
+                self.assertEqual(
+                    agent_task.classify_divergence(
+                        **base, changed_paths=["docs/readme.md"], deployment_input_paths=[pattern]
+                    ),
+                    "known_additive",
+                )
+
+    def test_frozen_batch_files_are_always_protected(self) -> None:
+        manifest = self.deploy_manifest()
+        for path in ("deploy/config", "scripts/check.py", "scripts/install.sh"):
+            evidence = self.evidence()
+            self.additive_descendant(evidence, [path], ["services/**"])
+            with self.subTest(path=path):
+                self.assertEqual(self.gate(manifest, evidence), "GATED")
+
+        evidence = self.evidence()
+        self.additive_descendant(evidence, ["docs/readme.md"], ["services/**"])
+        self.assertEqual(self.gate(manifest, evidence), "READY")
+
+        evidence = self.evidence()
+        self.additive_descendant(evidence, ["docs/readme.md"], [])
+        self.assertEqual(self.gate(manifest, evidence), "GATED")
+
+    def test_frozen_batch_rejects_alternate_spellings(self) -> None:
+        manifest = self.deploy_manifest()
+        for key, entry in (
+            ("validators", {"path": "./scripts/check.py", "sha256": "0" * 64}),
+            ("validators", {"path": "scripts//check.py", "sha256": "0" * 64}),
+            ("installedScripts", {"path": "scripts/install.sh/", "sha256": "0" * 64}),
+            ("deploymentConfiguration", {"path": "//etc/app.conf", "sha256": "0" * 64}),
+            ("deploymentTargets", {"destination": "/srv/example/app/", "mode": "0777"}),
+            ("deploymentTargets", {"destination": "/srv/example/./app", "mode": "0777"}),
+        ):
+            evidence = self.evidence()
+            evidence["records"][2]["frozenBatch"][key].append(entry)
+            self.refingerprint(evidence)
+            with self.subTest(key=key, entry=entry):
+                self.assertEqual(self.gate(manifest, evidence), "GATED")
+
+        evidence = self.evidence()
+        evidence["records"][2]["frozenBatch"]["deploymentConfiguration"].append(
+            {"path": "/etc/example/app.conf", "sha256": "1" * 64}
+        )
+        evidence["records"][2]["frozenBatch"]["deploymentTargets"].append(
+            {"destination": "https://deploy.example/api", "mode": None}
+        )
+        self.refingerprint(evidence)
+        self.assertEqual(self.gate(manifest, evidence), "READY")
+
+    def test_malformed_evidence_is_gated_without_crashing(self) -> None:
+        manifest = self.deploy_manifest()
+        for edit in (
+            lambda e: e["records"].append({"taskId": ["G"], "taskStatus": "complete"}),
+            lambda e: e["records"][3].update(taskStatus=["blocked"]),
+            lambda e: e["records"].append("not a record"),
+        ):
+            evidence = self.evidence()
+            edit(evidence)
+            with self.subTest(edit=edit):
+                self.assertEqual(self.gate(manifest, evidence), "GATED")
+
+        nested = '{"a":' * 100000 + "1" + "}" * 100000
+        self.assertEqual(self.gate(manifest, nested), "GATED")
+
+    def test_duplicate_json_keys_in_evidence_are_gated(self) -> None:
+        manifest = self.deploy_manifest()
+        evidence = self.evidence()
+        raw = json.dumps(evidence)
+        record = json.dumps(evidence["records"][2])
+        decoy = record.replace('"frozenBatch":', '"frozenBatch": {"decoy": true}, "frozenBatch":', 1)
+        self.assertEqual(self.gate(manifest, raw), "READY")
+        self.assertEqual(self.gate(manifest, raw.replace(record, decoy)), "GATED")
+
+    def test_manifest_rejects_non_string_kind_and_status_values(self) -> None:
+        edits = (
+            lambda m: m["tasks"]["R"].update(kind=["release_readiness"]),
+            lambda m: m["tasks"]["R"].update(required_status={"H": ["passed"]}),
+            lambda m: m["status"].update(R=["complete"]),
+        )
+        for edit in edits:
+            manifest = self.deploy_manifest()
+            edit(manifest)
+            with self.subTest(edit=edit), self.assertRaises(SystemExit):
+                agent_task.validate_manifest(manifest)
+
+    def test_canonical_encoding_sorts_only_declared_arrays(self) -> None:
+        batch = self.evidence()["records"][2]["frozenBatch"]
+        batch["deploymentTargets"] = [
+            {"destination": "/srv/b", "mode": None, "path": "a"},
+            {"destination": "/srv/a", "mode": None, "path": "b"},
+        ]
+        encoded = agent_task._canonical_batch(batch).decode("utf-8")
+        self.assertLess(encoded.index('"/srv/a"'), encoded.index('"/srv/b"'))
+
+        batch["liveSteps"] = [{"path": "z/step"}, {"path": "a/step"}]
+        reordered = copy.deepcopy(batch)
+        reordered["liveSteps"].reverse()
+        self.assertNotEqual(
+            agent_task.batch_fingerprint(batch),
+            agent_task.batch_fingerprint(reordered),
+        )
 
 
 if __name__ == "__main__":
