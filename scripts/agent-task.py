@@ -7,6 +7,7 @@ import argparse
 import fnmatch
 import functools
 import hashlib
+import ipaddress
 import itertools
 import json
 import re
@@ -53,9 +54,14 @@ HOST_REQUIRED_SCHEMES = {"http", "https", "ws", "wss", "ftp"}
 DEFAULT_PORTS = {"http": 80, "https": 443, "ws": 80, "wss": 443, "ftp": 21}
 # Parsers accept https:host and file:/path; requiring // keeps every spelling on one code path.
 SLASHLESS_URL = re.compile(r"(?i)(https?|wss?|ftp|file):(?!//)")
-# \\?\, \\.\, and mixed-separator forms of them (or of UNC \\server) are Windows device or UNC paths.
-WINDOWS_NAMESPACE = re.compile(r"[\\/]{2}[?.][\\/]|\\/|/\\")
-WINDOWS_DEVICE_NAMES = {"CON", "PRN", "AUX", "NUL", *(f"COM{n}" for n in range(1, 10)), *(f"LPT{n}" for n in range(1, 10))}
+# \\?\, \\.\, \??\, mixed-separator forms of them, and //server (UNC to Windows) are device or UNC paths.
+WINDOWS_NAMESPACE = re.compile(r"[\\/]{2}[?.][\\/]|\\/|/\\|//|\\\?\?\\")
+WINDOWS_DEVICE_NAMES = {
+    "CON", "PRN", "AUX", "NUL", "CONIN$", "CONOUT$",
+    *(f"{port}{number}" for port in ("COM", "LPT") for number in (*"123456789", "\u00b9", "\u00b2", "\u00b3")),
+}
+IPV4 = re.compile(r"(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}")
+NUMERIC_HOST_LABEL = re.compile(r"0[xX][0-9a-fA-F]*|\d+")
 
 
 def _fail(message: str) -> None:
@@ -245,7 +251,7 @@ def _windows_segments_ok(segments: list[str]) -> bool:
     # Windows drops trailing dots and spaces, reads name:stream as the same file, and maps NUL, COM1 and
     # the like to devices in every directory, so those spell aliases.
     return all(segment and segment[-1] not in ". " and ":" not in segment and
-               segment.split(".")[0].upper() not in WINDOWS_DEVICE_NAMES for segment in segments)
+               segment.split(".")[0].rstrip(" ").upper() not in WINDOWS_DEVICE_NAMES for segment in segments)
 
 
 def _is_dot_segment(segment: str) -> bool:
@@ -290,7 +296,8 @@ def _destination_key(destination: object) -> str | None:
     if scheme:
         return _url_key(key[:scheme.end() - 3].lower(), key[scheme.end():])
     key = key.replace("\\", "/")
-    if any(segment in {".", ".."} for segment in key.split("/")):
+    # An scp-style host:./dir hides its dot segment behind the colon.
+    if any(segment in {".", ".."} for segment in re.split("[/:]", key)):
         return None
     if windows and not _windows_segments_ok([segment for segment in key.split("/")[1:] if segment]):
         return None
@@ -301,6 +308,25 @@ def _destination_key(destination: object) -> str | None:
         return None
     # Drive and UNC paths are case-insensitive and never name the same place as a POSIX path.
     return "windows:" + key.casefold() if windows else key
+
+
+def _special_host(host: str) -> str | None:
+    """A web URL host in the one spelling parsers keep, or None for a form they would rewrite."""
+    if "%" in host or not host.isascii():
+        # Percent-encoded, full-width, and Unicode hosts are decoded or IDNA-mapped by parsers,
+        # and an IPv6 zone ID is invalid in a URL.
+        return None
+    if host.startswith("["):
+        try:
+            return f"[{ipaddress.IPv6Address(host[1:-1]).compressed}]"
+        except ValueError:
+            return None
+    labels = host.split(".")
+    last = labels[-1] or (labels[-2] if len(labels) > 1 else "")
+    if NUMERIC_HOST_LABEL.fullmatch(last) and not IPV4.fullmatch(host):
+        # 127.1, 2130706433, and 0x7f.1 all parse as 127.0.0.1.
+        return None
+    return host
 
 
 def _url_key(scheme: str, rest: str) -> str | None:
@@ -316,17 +342,30 @@ def _url_key(scheme: str, rest: str) -> str | None:
     else:
         host = hostport.partition(":")[0]
     local_file = scheme == "file" and not at and host.lower() in {"", "localhost"} and hostport == host
+    if scheme == "file" and not local_file:
+        # file://server/share is a UNC path in disguise.
+        return None
     if local_file or (not authority and scheme not in HOST_REQUIRED_SCHEMES):
-        # A local path takes no query or fragment, and its dot segments may be percent-encoded.
-        if not route.startswith("/") or "?" in route or "#" in route or any(map(_is_dot_segment, route.split("/"))):
+        # A local path takes no query or fragment, and its dot segments and separators may be percent-encoded;
+        # file:///C:/x and file:///C|/x name a Windows drive.
+        if (not route.startswith("/") or "?" in route or "#" in route or re.search("%(2f|5c)", route, re.IGNORECASE) or
+                re.match(r"/[A-Za-z][:|]", route) or any(map(_is_dot_segment, route.split("/")))):
             return None
         local = _destination_key(route)
         return local if local_file or local is None else f"{scheme}:{local}"
     if not host.strip("[]"):
         return None
-    port = hostport[len(host):][1:]
+    after_host = hostport[len(host):]
+    if after_host and not after_host.startswith(":"):
+        return None
+    if scheme in HOST_REQUIRED_SCHEMES:
+        host = _special_host(host)
+        if host is None or (at and not userinfo):
+            # Web URL parsers rewrite these hosts and drop an empty user@, so other spellings would alias them.
+            return None
+    port = after_host[1:]
     if port:
-        if not port.isdigit() or not port.isascii() or int(port) > 65535:
+        if not port.isdigit() or not port.isascii() or len(port) > 5 or int(port) > 65535:
             return None
         # :0443 and :443 are the same port, and the scheme's default port is the same as none.
         port = "" if int(port) == DEFAULT_PORTS.get(scheme) else str(int(port))

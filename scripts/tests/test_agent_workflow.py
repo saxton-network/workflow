@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import importlib.util
 import io
 import json
@@ -799,9 +800,30 @@ class WorkflowV3Tests(unittest.TestCase):
         env.update(GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM="1", HOME=home.name, XDG_CONFIG_HOME=home.name)
         return env
 
+    def forge_commit_graph(self, repo: Path, commit: str, *, tree_from: str | None = None,
+                           parent: str | None = None) -> None:
+        """Rewrite one commit's entry in the repository's commit-graph, as anyone with local access could."""
+        path = repo / ".git" / "objects" / "info" / "commit-graph"
+        data = bytearray(path.read_bytes())
+        chunks = {}
+        for index in range(data[6] + 1):
+            entry = 8 + 12 * index
+            chunks[bytes(data[entry:entry + 4])] = int.from_bytes(data[entry + 4:entry + 12], "big")
+        oids, commits = chunks[b"OIDL"], chunks[b"CDAT"]
+        order = [data[oids + 20 * index:oids + 20 * index + 20].hex() for index in range((commits - oids) // 20)]
+        record = commits + 36 * order.index(commit)
+        if tree_from is not None:
+            source = commits + 36 * order.index(tree_from)
+            data[record:record + 20] = data[source:source + 20]
+        if parent is not None:
+            data[record + 20:record + 24] = order.index(parent).to_bytes(4, "big")
+        data[-20:] = hashlib.sha1(bytes(data[:-20])).digest()
+        path.chmod(0o644)
+        path.write_bytes(bytes(data))
+
     def test_documented_changed_paths_command_reports_every_changed_path(self) -> None:
-        documented = ["git", "--no-replace-objects", "diff", "--no-renames", "--no-relative",
-                      "--ignore-submodules=none", "--name-only", "-z"]
+        documented = ["git", "--no-replace-objects", "-c", "core.commitGraph=false", "diff", "--no-renames",
+                      "--no-relative", "--ignore-submodules=none", "--name-only", "-z"]
         manifest_doc = (ROOT / "agent-work" / "EVIDENCE-MANIFEST.md").read_text(encoding="utf-8")
         self.assertIn(" ".join(documented), manifest_doc)
         env = self.isolated_git_env()
@@ -831,6 +853,10 @@ class WorkflowV3Tests(unittest.TestCase):
             git(repo, "add", "sub/file.txt")
             git(repo, "update-index", "--cacheinfo", f"160000,{'2' * 40},vendor/tool")
             git(repo, "commit", "-q", "-m", "descendant")
+            descendant = git(repo, "rev-parse", "HEAD").strip()
+            # A forged commit-graph can give the descendant the source's tree.
+            git(repo, "commit-graph", "write", "--reachable")
+            self.forge_commit_graph(repo, descendant, tree_from=source)
             # A replace ref can make the descendant read as an innocuous commit.
             innocuous = git(repo, "commit-tree", f"{source}^{{tree}}", "-p", source, "-m", "innocuous").strip()
             git(repo, "replace", "HEAD", innocuous)
@@ -852,38 +878,49 @@ class WorkflowV3Tests(unittest.TestCase):
         self.additive_descendant(evidence, documented_paths, ["services/**"])
         self.assertEqual(self.gate(manifest, evidence), "GATED")
 
-        # Without the flags, the replace ref and these settings hide every real change.
+        # Without the flags, the replace ref, the commit-graph, and these settings hide every real change.
         self.assertNotIn("scripts/install.sh", default_paths)
         self.assertNotIn("vendor/tool", default_paths)
         self.assertNotIn("sub/file.txt", default_paths)
 
-    def test_documented_ancestry_check_ignores_grafts(self) -> None:
-        documented = "GIT_GRAFT_FILE=/dev/null git --no-replace-objects merge-base --is-ancestor"
+    def test_documented_ancestry_check_ignores_grafts_and_commit_graphs(self) -> None:
+        documented = ("GIT_GRAFT_FILE=/dev/null git --no-replace-objects -c core.commitGraph=false "
+                      "-c advice.graftFileDeprecated=false merge-base --is-ancestor")
         manifest_doc = (ROOT / "agent-work" / "EVIDENCE-MANIFEST.md").read_text(encoding="utf-8")
         self.assertIn(documented, manifest_doc)
         env = self.isolated_git_env()
         identity = ["-c", "user.name=test", "-c", "user.email=test@example.invalid", "-c", "commit.gpgsign=false"]
+        hardened = ["--no-replace-objects", "-c", "core.commitGraph=false", "-c", "advice.graftFileDeprecated=false"]
+        no_grafts = {"GIT_GRAFT_FILE": os.devnull}
 
-        with tempfile.TemporaryDirectory() as directory:
-            repo = Path(directory)
+        for forgery in ("graft", "commit-graph"):
+            with self.subTest(forgery=forgery), tempfile.TemporaryDirectory() as directory:
+                repo = Path(directory)
 
-            def git(*args: str, extra: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
-                return subprocess.run(["git", *identity, *args], cwd=repo, env={**env, **(extra or {})},
-                                      capture_output=True, text=True)
+                def git(*args: str, extra: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
+                    return subprocess.run(["git", *identity, *args], cwd=repo, env={**env, **(extra or {})},
+                                          capture_output=True, text=True)
 
-            git("init", "-q")
-            git("commit", "-q", "--allow-empty", "-m", "authority")
-            authority = git("rev-parse", "HEAD").stdout.strip()
-            git("checkout", "-q", "--orphan", "unrelated")
-            git("commit", "-q", "--allow-empty", "-m", "unrelated")
-            unrelated = git("rev-parse", "HEAD").stdout.strip()
-            # A local graft file can make an unrelated commit claim the authority as its parent.
-            (repo / ".git" / "info").mkdir(exist_ok=True)
-            (repo / ".git" / "info" / "grafts").write_text(f"{unrelated} {authority}\n", encoding="utf-8")
+                git("init", "-q")
+                git("commit", "-q", "--allow-empty", "-m", "authority")
+                authority = git("rev-parse", "HEAD").stdout.strip()
+                git("checkout", "-q", "--orphan", "unrelated")
+                git("commit", "-q", "--allow-empty", "-m", "unrelated root")
+                root = git("rev-parse", "HEAD").stdout.strip()
+                git("commit", "-q", "--allow-empty", "-m", "unrelated tip")
+                tip = git("rev-parse", "HEAD").stdout.strip()
+                # Local state can claim the unrelated root's parent is the authority.
+                if forgery == "graft":
+                    (repo / ".git" / "info").mkdir(exist_ok=True)
+                    (repo / ".git" / "info" / "grafts").write_text(f"{root} {authority}\n", encoding="utf-8")
+                else:
+                    git("commit-graph", "write", "--reachable")
+                    self.forge_commit_graph(repo, root, parent=authority)
 
-            ancestry = ["--no-replace-objects", "merge-base", "--is-ancestor", authority, unrelated]
-            self.assertEqual(git(*ancestry).returncode, 0)
-            self.assertEqual(git(*ancestry, extra={"GIT_GRAFT_FILE": os.devnull}).returncode, 1)
+                ancestry = ["merge-base", "--is-ancestor", authority, tip]
+                self.assertEqual(git("--no-replace-objects", *ancestry, extra=no_grafts if forgery != "graft" else None)
+                                 .returncode, 0)
+                self.assertEqual(git(*hardened, *ancestry, extra=no_grafts).returncode, 1)
 
     def test_recursive_and_bracketed_patterns_cover_their_paths(self) -> None:
         base = dict(
@@ -1176,13 +1213,14 @@ class WorkflowV3Tests(unittest.TestCase):
             ("https://deploy.example:08443/api", "https://deploy.example:8443/api"),
             ("https://deploy.example:x/api",),
             ("https://deploy.example:65536/api",),
+            ("https://deploy.example:\u0664\u0664\u0663/api",),
             ("\\/?\\C:\\app", "C:\\app"),
             ("/\\?\\C:\\app", "C:\\app"),
             ("\\/server\\share\\app", "\\\\server\\share\\app"),
             ("\\\\?\\UNC\\server\\share\\app",),
             ("C:\\a\\NUL", "C:\\b\\NUL"),
             ("C:\\app\\com1.log",),
-            ("unix:///run/x?a=/../b",),
+            ("unix:///run/x?a=b",),
             ("file:///srv/x#frag",),
         ):
             with self.subTest(destinations=destinations):
@@ -1197,6 +1235,51 @@ class WorkflowV3Tests(unittest.TestCase):
         ):
             with self.subTest(distinct=destinations):
                 self.assertEqual(self.destinations_gate(*destinations), "READY")
+
+    def test_host_and_device_spellings_that_alias_are_gated(self) -> None:
+        for destinations in (
+            ("C:\\a\\NUL .txt", "C:\\b\\NUL .txt"),
+            ("C:\\a\\CONOUT$",),
+            ("C:\\a\\conin$.txt",),
+            ("C:\\a\\COM\u00b9",),
+            ("C:\\a\\lpt\u00b2.log",),
+            ("https://127.0.0.1/app", "https://127.1/app"),
+            ("https://2130706433/app",),
+            ("https://0x7f.1/app",),
+            ("https://1.2.3.4./app",),
+            ("https://example.com/app", "https://%65xample.com/app"),
+            ("https://b\u00fccher.example/app",),
+            ("https://\uff45xample.com/app",),
+            ("https://exa\u200bmple.com/app",),
+            ("https://[::1]/app", "https://[0:0::1]/app"),
+            ("https://[::1]x443/app",),
+            ("https://[::1%25eth0]/app",),
+            ("https://example.com/app", "https://@example.com/app"),
+            ("https://deploy.example:" + "1" * 5000 + "/x",),
+            ("host:app", "host:./app"),
+            ("host:../etc",),
+            ("C:\\srv\\app", "file:///C:/srv/app"),
+            ("file:///c|/srv/app",),
+            ("\\\\server\\share\\app", "file://server/share/app"),
+            ("file:///srv/app/..%2Fetc", "/srv/etc"),
+            ("file:///srv/a%5Cb",),
+            ("//server/share/app", "\\\\server\\share\\app"),
+            ("\\??\\C:\\app", "C:\\app"),
+        ):
+            with self.subTest(destinations=destinations):
+                self.assertEqual(self.destinations_gate(*destinations), "GATED")
+
+        for destination in (
+            "https://127.0.0.1/app",
+            "https://[2001:db8::1]:8443/x",
+            "https://xn--bcher-kva.example/app",
+            "https://user@deploy.example/x",
+            "host:srv/app",
+            "C:\\app\\console.log",
+            "C:\\app\\com0",
+        ):
+            with self.subTest(accepted=destination):
+                self.assertEqual(self.destinations_gate(destination), "READY")
 
     def test_many_protected_patterns_stay_fast(self) -> None:
         patterns = [f"service{index}/[a]/**/x" for index in range(1500)]
