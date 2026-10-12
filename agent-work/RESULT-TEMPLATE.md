@@ -2,6 +2,8 @@
 
 Use this template unless the task defines a stricter result format.
 
+This file is a human/coordinator-readable handoff format. `scripts/agent-task.py` does not parse or enforce every prose field in this template. Machine-enforced deployment gating comes from the workflow manifest and coordinator-owned `evidence.json`; the coordinator/reviewer remains responsible for verifying claims recorded here.
+
 ## Identity
 
 - Workflow/task:
@@ -56,8 +58,9 @@ For v3 release readiness, also report `readinessVerdict` (`PASS`, `FAIL`, or
 check by name and reason; an unresolved required unknown blocks the overall
 PASS. Include the canonical frozen-batch input and SHA-256 fingerprint, exact
 source/artifact/config/script/validator identities, rollback provenance,
-prevalidated check results, live-only checks, proposed batch, and evidence
-links. `complete` alone does not permit a live approval preview. For a live
+the explicit deployment target destination/mode metadata (plus owner/group when
+applicable), prevalidated check results, live-only checks, proposed batch, and
+evidence links. `complete` alone does not permit a live approval preview. For a live
 attempt, record the approval reference tied to that fingerprint, immediate
 drift recheck, runtime acceptance, and rollback result when needed.
 
