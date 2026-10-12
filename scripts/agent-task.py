@@ -50,6 +50,12 @@ URL_SCHEME = re.compile(r"[A-Za-z][A-Za-z0-9+.-]*://")
 MAX_PATTERN_EXPANSIONS = 6
 # WHATWG parsers require a host for these schemes; other schemes may name a local path (unix:///run/x).
 HOST_REQUIRED_SCHEMES = {"http", "https", "ws", "wss", "ftp"}
+DEFAULT_PORTS = {"http": 80, "https": 443, "ws": 80, "wss": 443, "ftp": 21}
+# Parsers accept https:host and file:/path; requiring // keeps every spelling on one code path.
+SLASHLESS_URL = re.compile(r"(?i)(https?|wss?|ftp|file):(?!//)")
+# \\?\, \\.\, and mixed-separator forms of them (or of UNC \\server) are Windows device or UNC paths.
+WINDOWS_NAMESPACE = re.compile(r"[\\/]{2}[?.][\\/]|\\/|/\\")
+WINDOWS_DEVICE_NAMES = {"CON", "PRN", "AUX", "NUL", *(f"COM{n}" for n in range(1, 10)), *(f"LPT{n}" for n in range(1, 10))}
 
 
 def _fail(message: str) -> None:
@@ -236,8 +242,15 @@ def _normalized_repo_path(path: object, *, allow_trailing_slash: bool = False) -
 
 
 def _windows_segments_ok(segments: list[str]) -> bool:
-    # Windows drops trailing dots and spaces and reads name:stream as the same file, so those spell aliases.
-    return all(segment and segment[-1] not in ". " and ":" not in segment for segment in segments)
+    # Windows drops trailing dots and spaces, reads name:stream as the same file, and maps NUL, COM1 and
+    # the like to devices in every directory, so those spell aliases.
+    return all(segment and segment[-1] not in ". " and ":" not in segment and
+               segment.split(".")[0].upper() not in WINDOWS_DEVICE_NAMES for segment in segments)
+
+
+def _is_dot_segment(segment: str) -> bool:
+    """A URL path segment that parsers resolve as . or .., including percent-encoded dots."""
+    return re.sub("%2e", ".", segment, flags=re.IGNORECASE) in {".", ".."}
 
 
 def _canonical_path(path: object) -> bool:
@@ -260,10 +273,13 @@ def _path_key(path: str) -> str:
 
 def _destination_key(destination: object) -> str | None:
     """Comparison key for a deployment destination, or None when its spelling is ambiguous."""
-    if not isinstance(destination, str) or not destination.strip():
+    if not isinstance(destination, str) or not destination.strip() or destination != destination.strip():
         return None
-    if destination.startswith(("\\\\?\\", "\\\\.\\")):
-        # Win32 namespace prefixes skip path normalization and alias ordinary paths.
+    if any(ord(char) < 0x20 or ord(char) == 0x7F for char in destination):
+        # URL parsers drop tabs and newlines anywhere, so ..\t would still resolve as ..
+        return None
+    if WINDOWS_NAMESPACE.match(destination) or SLASHLESS_URL.match(destination):
+        # Win32 namespace prefixes skip path normalization, and slashless URLs dodge the URL rules.
         return None
     key = unicodedata.normalize("NFC", destination)
     windows = bool(WINDOWS_ABSOLUTE.match(key))
@@ -299,20 +315,28 @@ def _url_key(scheme: str, rest: str) -> str | None:
         host = hostport[:hostport.find("]") + 1] if "]" in hostport else ""
     else:
         host = hostport.partition(":")[0]
-    if scheme == "file" and not at and host.lower() in {"", "localhost"} and hostport == host:
-        return _destination_key(route) if route.startswith("/") else None
-    if not authority and scheme not in HOST_REQUIRED_SCHEMES:
-        local = _destination_key(route) if route.startswith("/") else None
-        return None if local is None else f"{scheme}:{local}"
+    local_file = scheme == "file" and not at and host.lower() in {"", "localhost"} and hostport == host
+    if local_file or (not authority and scheme not in HOST_REQUIRED_SCHEMES):
+        # A local path takes no query or fragment, and its dot segments may be percent-encoded.
+        if not route.startswith("/") or "?" in route or "#" in route or any(map(_is_dot_segment, route.split("/"))):
+            return None
+        local = _destination_key(route)
+        return local if local_file or local is None else f"{scheme}:{local}"
     if not host.strip("[]"):
         return None
+    port = hostport[len(host):][1:]
+    if port:
+        if not port.isdigit() or not port.isascii() or int(port) > 65535:
+            return None
+        # :0443 and :443 are the same port, and the scheme's default port is the same as none.
+        port = "" if int(port) == DEFAULT_PORTS.get(scheme) else str(int(port))
     path = re.split(r"[?#]", route, maxsplit=1)[0]
-    if any(segment in {".", ".."} for segment in path.split("/")):
+    if any(map(_is_dot_segment, path.split("/"))):
         return None
     if not route.startswith("/"):
         # https://host?q and https://host/?q name the same resource.
         route = "/" + route
-    return f"{scheme}://{userinfo}{at}{host.lower()}{hostport[len(host):]}{route}"
+    return f"{scheme}://{userinfo}{at}{host.lower()}{':' if port else ''}{port}{route}"
 
 
 @functools.lru_cache(maxsize=1024)
