@@ -191,18 +191,22 @@ def validate_manifest(data: dict) -> None:
 
 def _canonical_batch(value: object) -> bytes:
     """Canonical JSON, including path-sorted entry arrays, for the approved batch."""
+    def entry_key(field: str):
+        # Break ties on the whole entry so the encoding never depends on input order.
+        return lambda part: (part[field], json.dumps(part, sort_keys=True, separators=(",", ":"), ensure_ascii=False))
+
     def ordered(item: object) -> object:
         if isinstance(item, dict):
             return {key: ordered(part) for key, part in item.items()}
         if isinstance(item, list):
             parts = [ordered(part) for part in item]
             if parts and all(isinstance(part, dict) and isinstance(part.get("path"), str) for part in parts):
-                parts.sort(key=lambda part: part["path"])
+                parts.sort(key=entry_key("path"))
             elif parts and all(
                 isinstance(part, dict) and isinstance(part.get("destination"), str)
                 for part in parts
             ):
-                parts.sort(key=lambda part: part["destination"])
+                parts.sort(key=entry_key("destination"))
             return parts
         return item
     return json.dumps(ordered(value), sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False).encode("utf-8")
@@ -337,7 +341,8 @@ def live_gate_state(data: dict, evidence_path: Path | None = None, *, allow_comp
             not isinstance(entry, dict) or not isinstance(entry.get("path"), str) or not entry["path"] or
             not isinstance(entry.get("sha256"), str) or not SHA256.fullmatch(entry["sha256"])
             for entry in entries
-        ):
+        ) or len({entry["path"] for entry in entries}) != len(entries):
+            # A repeated path is ambiguous about which bytes were frozen.
             return "GATED"
     targets = batch["deploymentTargets"]
     if not isinstance(targets, list) or not targets:
@@ -354,6 +359,8 @@ def live_gate_state(data: dict, evidence_path: Path | None = None, *, allow_comp
             value = target.get(key)
             if key in target and value is not None and (not isinstance(value, str) or not value):
                 return "GATED"
+    if len({target["destination"] for target in targets}) != len(targets):
+        return "GATED"
     rollback = batch["rollbackArtifact"]
     if not isinstance(rollback, dict) or any(not isinstance(rollback.get(key), str) or not rollback[key]
                                               for key in ("identity", "provenance")):

@@ -349,6 +349,30 @@ class WorkflowV3Tests(unittest.TestCase):
             with self.subTest(targets=targets):
                 self.assertEqual(self.gate(manifest, evidence), "GATED")
 
+    def test_frozen_batch_rejects_ambiguous_duplicate_entries(self) -> None:
+        manifest = self.deploy_manifest()
+        for key, duplicate in (
+            ("deploymentTargets", {"destination": "/srv/example/app", "mode": "0777"}),
+            ("validators", {"path": "scripts/check.py", "sha256": "0" * 64}),
+            ("deploymentConfiguration", {"path": "deploy/config", "sha256": "0" * 64}),
+            ("installedScripts", {"path": "scripts/install.sh", "sha256": "0" * 64}),
+        ):
+            evidence = self.evidence()
+            batch = evidence["records"][2]["frozenBatch"]
+            batch[key].append(duplicate)
+            fingerprint = agent_task.batch_fingerprint(batch)
+            evidence["records"][2]["frozenBatchFingerprint"] = fingerprint
+            evidence["records"][3]["frozenBatchFingerprint"] = fingerprint
+            with self.subTest(key=key):
+                self.assertEqual(self.gate(manifest, evidence), "GATED")
+
+                reordered = copy.deepcopy(batch)
+                reordered[key].reverse()
+                self.assertEqual(
+                    agent_task.batch_fingerprint(batch),
+                    agent_task.batch_fingerprint(reordered),
+                )
+
     def test_batch_fingerprint_is_order_independent_for_declared_lists(self) -> None:
         batch = self.evidence()["records"][2]["frozenBatch"]
         batch["deploymentConfiguration"].append(
