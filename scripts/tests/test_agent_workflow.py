@@ -788,20 +788,23 @@ class WorkflowV3Tests(unittest.TestCase):
             agent_task.batch_fingerprint(reordered),
         )
 
-    def test_documented_changed_paths_command_reports_every_changed_path(self) -> None:
-        documented = ["git", "--no-replace-objects", "diff", "--no-renames", "--no-relative",
-                      "--ignore-submodules=none", "--name-only", "-z"]
-        manifest_doc = (ROOT / "agent-work" / "EVIDENCE-MANIFEST.md").read_text(encoding="utf-8")
-        self.assertIn(" ".join(documented), manifest_doc)
+    def isolated_git_env(self) -> dict[str, str]:
         if shutil.which("git") is None:
             self.skipTest("git is not installed")
-
         # Inherited GIT_DIR, GIT_INDEX_FILE, and similar would point git at the caller's repository,
         # and the caller's XDG ignore or attributes files would change what git adds.
         home = tempfile.TemporaryDirectory()
         self.addCleanup(home.cleanup)
         env = {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
         env.update(GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM="1", HOME=home.name, XDG_CONFIG_HOME=home.name)
+        return env
+
+    def test_documented_changed_paths_command_reports_every_changed_path(self) -> None:
+        documented = ["git", "--no-replace-objects", "diff", "--no-renames", "--no-relative",
+                      "--ignore-submodules=none", "--name-only", "-z"]
+        manifest_doc = (ROOT / "agent-work" / "EVIDENCE-MANIFEST.md").read_text(encoding="utf-8")
+        self.assertIn(" ".join(documented), manifest_doc)
+        env = self.isolated_git_env()
         identity = ["-c", "user.name=test", "-c", "user.email=test@example.invalid", "-c", "commit.gpgsign=false"]
         # Settings a coordinator's own git config may carry; the documented command must override them.
         hostile = ["-c", "diff.relative=true", "-c", "diff.ignoreSubmodules=all", "-c", "diff.renames=copies"]
@@ -853,6 +856,34 @@ class WorkflowV3Tests(unittest.TestCase):
         self.assertNotIn("scripts/install.sh", default_paths)
         self.assertNotIn("vendor/tool", default_paths)
         self.assertNotIn("sub/file.txt", default_paths)
+
+    def test_documented_ancestry_check_ignores_grafts(self) -> None:
+        documented = "GIT_GRAFT_FILE=/dev/null git --no-replace-objects merge-base --is-ancestor"
+        manifest_doc = (ROOT / "agent-work" / "EVIDENCE-MANIFEST.md").read_text(encoding="utf-8")
+        self.assertIn(documented, manifest_doc)
+        env = self.isolated_git_env()
+        identity = ["-c", "user.name=test", "-c", "user.email=test@example.invalid", "-c", "commit.gpgsign=false"]
+
+        with tempfile.TemporaryDirectory() as directory:
+            repo = Path(directory)
+
+            def git(*args: str, extra: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
+                return subprocess.run(["git", *identity, *args], cwd=repo, env={**env, **(extra or {})},
+                                      capture_output=True, text=True)
+
+            git("init", "-q")
+            git("commit", "-q", "--allow-empty", "-m", "authority")
+            authority = git("rev-parse", "HEAD").stdout.strip()
+            git("checkout", "-q", "--orphan", "unrelated")
+            git("commit", "-q", "--allow-empty", "-m", "unrelated")
+            unrelated = git("rev-parse", "HEAD").stdout.strip()
+            # A local graft file can make an unrelated commit claim the authority as its parent.
+            (repo / ".git" / "info").mkdir(exist_ok=True)
+            (repo / ".git" / "info" / "grafts").write_text(f"{unrelated} {authority}\n", encoding="utf-8")
+
+            ancestry = ["--no-replace-objects", "merge-base", "--is-ancestor", authority, unrelated]
+            self.assertEqual(git(*ancestry).returncode, 0)
+            self.assertEqual(git(*ancestry, extra={"GIT_GRAFT_FILE": os.devnull}).returncode, 1)
 
     def test_recursive_and_bracketed_patterns_cover_their_paths(self) -> None:
         base = dict(
@@ -1127,6 +1158,45 @@ class WorkflowV3Tests(unittest.TestCase):
             self.refingerprint(evidence)
             with self.subTest(alias=alias):
                 self.assertEqual(self.gate(manifest, evidence), "GATED")
+
+    def test_destination_spellings_that_parsers_normalize_are_gated(self) -> None:
+        for destinations in (
+            ("https://deploy.example/app/%2e%2e/api", "https://deploy.example/api"),
+            ("https://deploy.example/app/.%2E/api",),
+            ("https://deploy.example/app/..\t/api", "https://deploy.example/api"),
+            ("https://deploy.example/app/.\n./api",),
+            ("unix:///run/%2e%2e/x", "unix:///x"),
+            ("https:deploy.example/api", "https://deploy.example/api"),
+            ("http:\\\\deploy.example\\api",),
+            ("file:/srv/app", "/srv/app"),
+            (" https://deploy.example/api", "https://deploy.example/api"),
+            ("/srv/app ",),
+            ("https://deploy.example:443/api", "https://deploy.example/api"),
+            ("https://deploy.example:/api", "https://deploy.example/api"),
+            ("https://deploy.example:08443/api", "https://deploy.example:8443/api"),
+            ("https://deploy.example:x/api",),
+            ("https://deploy.example:65536/api",),
+            ("\\/?\\C:\\app", "C:\\app"),
+            ("/\\?\\C:\\app", "C:\\app"),
+            ("\\/server\\share\\app", "\\\\server\\share\\app"),
+            ("\\\\?\\UNC\\server\\share\\app",),
+            ("C:\\a\\NUL", "C:\\b\\NUL"),
+            ("C:\\app\\com1.log",),
+            ("unix:///run/x?a=/../b",),
+            ("file:///srv/x#frag",),
+        ):
+            with self.subTest(destinations=destinations):
+                self.assertEqual(self.destinations_gate(*destinations), "GATED")
+
+        for destinations in (
+            ("https://deploy.example:8443/api", "https://deploy.example/api"),
+            ("http://deploy.example:443/api", "https://deploy.example:443/api"),
+            ("https://deploy.example/app/%2e%2ex/api",),
+            ("/srv/%2e%2e/app",),
+            ("C:\\app\\console.log",),
+        ):
+            with self.subTest(distinct=destinations):
+                self.assertEqual(self.destinations_gate(*destinations), "READY")
 
     def test_many_protected_patterns_stay_fast(self) -> None:
         patterns = [f"service{index}/[a]/**/x" for index in range(1500)]
