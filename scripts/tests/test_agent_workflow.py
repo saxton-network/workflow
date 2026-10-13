@@ -1049,6 +1049,7 @@ class WorkflowV3Tests(unittest.TestCase):
         "https://[2001:db8::1]:8443/x",
         "https://xn--bcher-kva.example/app",
         "ssh://deploy-host/srv/app",
+        "ssh:///srv/app",
         "ssh://web1:2222/srv/app",
         "s3://bucket/releases",
         "unix:///run/app.sock",
@@ -1132,6 +1133,9 @@ class WorkflowV3Tests(unittest.TestCase):
         "sftp://web1:22/srv/app",
         "rsync://web1:873/srv/app",
         "git://web1:9418/repo",
+        "scp://web1:22/srv/app",
+        "ftps://files.example:990/x",
+        "smb://server:445/share",
         "ssh://[::1/srv/app",
         "ssh://[::1",
         "https://[::1:8443/app",
@@ -1190,7 +1194,7 @@ class WorkflowV3Tests(unittest.TestCase):
                 self.assertEqual(agent_task.classify_divergence(**base, changed_paths=[path]), "unknown")
         self.assertEqual(agent_task.classify_divergence(**base, changed_paths=["docs/a-b_c.md"]), "known_additive")
         # An unmatched bracket can never match an accepted path, so the pattern would protect nothing.
-        for pattern in ("deploy/[abc", "deploy/abc]", "deploy/[a]b]"):
+        for pattern in ("deploy/[abc", "deploy/abc]", "deploy/[a]b]", "deploy/[]", "deploy/[!]", "deploy/[]x"):
             with self.subTest(pattern=pattern):
                 self.assertIsInstance(agent_task.repo_path_problem(pattern, pattern=True), str)
                 self.assertEqual(
@@ -1199,6 +1203,20 @@ class WorkflowV3Tests(unittest.TestCase):
                     "unknown",
                 )
         self.assertIsNone(agent_task.repo_path_problem("deploy/[abc]/*.yml", pattern=True))
+        # fnmatch reads a ] right after [ or [! as a class member, so these are closed classes.
+        for pattern, changed, expected in (
+            ("deploy/[]a]", "deploy/a", "protected_change"),
+            ("deploy/[]a]", "deploy/b", "known_additive"),
+            ("deploy/[!]a]", "deploy/b", "protected_change"),
+            ("deploy/[!]a]", "deploy/a", "known_additive"),
+        ):
+            with self.subTest(pattern=pattern, changed=changed):
+                self.assertIsNone(agent_task.repo_path_problem(pattern, pattern=True))
+                self.assertEqual(
+                    agent_task.classify_divergence(**{**base, "deployment_input_paths": [pattern]},
+                                                   changed_paths=[changed]),
+                    expected,
+                )
 
     def test_format_problems_are_reported(self) -> None:
         manifest = self.deploy_manifest()
