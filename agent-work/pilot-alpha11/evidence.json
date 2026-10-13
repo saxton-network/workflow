@@ -49,7 +49,7 @@
       "taskId": "B",
       "attempt": 1,
       "role": "independent_review",
-      "model": "claude-opus-5-5",
+      "model": null,
       "branch": "pilot/alpha11-records",
       "worktree": null,
       "baseSha": "b2316d116d09d91788b9b653a126cb3edd702281",
@@ -76,12 +76,51 @@
       "evidence": [
         {
           "path": "agent-work/pilot-alpha11/results/B-1.md",
-          "sha256": "696eb37a6f7c5de0d4a4cb7abd4e119a2f83430b3606e82e412d3b877a59af7a"
+          "sha256": "a5757d4f96f2fa1491f7c1755df258e746260d1a0985dcf60d48de195eb5fb28"
         }
       ],
       "helper": {
         "path": "scripts/agent-task.py",
         "sha256": "4cf6995d8d901dad74bf90a69a5fbe5aae8a38a8ef3e6ba410790bdba5d6d4a6"
+      }
+    },
+    {
+      "taskId": "P",
+      "attempt": 1,
+      "role": "authority_promotion",
+      "model": null,
+      "branch": "main",
+      "worktree": null,
+      "baseSha": "b2316d116d09d91788b9b653a126cb3edd702281",
+      "candidateSha": "d568c5f18986ea122018bde2d1badb257346dd92",
+      "deploymentSourceSha": "d568c5f18986ea122018bde2d1badb257346dd92",
+      "taskStatus": "complete",
+      "readinessVerdict": null,
+      "startedAt": null,
+      "completedAt": null,
+      "changedPaths": [],
+      "reviewFindingIds": [],
+      "approvalReference": null,
+      "validation": [
+        {
+          "checkId": "ancestry-and-fast-forward",
+          "inputFingerprint": null,
+          "validatorSha256": null,
+          "exitCode": 0,
+          "verdict": "PASS",
+          "recordedAt": null,
+          "evidencePath": "agent-work/pilot-alpha11/results/P.md"
+        }
+      ],
+      "evidence": [
+        {
+          "path": "agent-work/pilot-alpha11/results/P.md",
+          "sha256": "72207faa9dde6d1b3d61ca79b371850c731c6f50bfc332cf96770668a6ca6ca4"
+        }
+      ],
+      "helper": {
+        "path": "scripts/agent-task.py",
+        "sha256": "fadb61b1bd081bb72f337e973ec648d36baff39623cc1b08c602a59cccfd1559"
       }
     }
   ]
