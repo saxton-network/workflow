@@ -12,7 +12,6 @@ import itertools
 import json
 import re
 import sys
-import unicodedata
 from pathlib import Path
 
 try:
@@ -45,23 +44,20 @@ V3_KINDS = {
 DEPLOYMENT_KINDS = {"authority_promotion", "release_readiness", "live_deployment", "final_reconciliation"}
 SHA1 = re.compile(r"[0-9a-f]{40}\Z")
 SHA256 = re.compile(r"[0-9a-f]{64}\Z")
-WINDOWS_DRIVE = re.compile(r"[A-Za-z]:")
-WINDOWS_ABSOLUTE = re.compile(r"[A-Za-z]:[\\/]|\\\\")
-URL_SCHEME = re.compile(r"[A-Za-z][A-Za-z0-9+.-]*://")
-MAX_PATTERN_EXPANSIONS = 6
-# WHATWG parsers require a host for these schemes; other schemes may name a local path (unix:///run/x).
-HOST_REQUIRED_SCHEMES = {"http", "https", "ws", "wss", "ftp"}
-DEFAULT_PORTS = {"http": 80, "https": 443, "ws": 80, "wss": 443, "ftp": 21}
-# Parsers accept https:host and file:/path; requiring // keeps every spelling on one code path.
-SLASHLESS_URL = re.compile(r"(?i)(https?|wss?|ftp|file):(?!//)")
-# \\?\, \\.\, \??\, mixed-separator forms of them, and //server (UNC to Windows) are device or UNC paths.
-WINDOWS_NAMESPACE = re.compile(r"[\\/]{2}[?.][\\/]|\\/|/\\|//|\\\?\?\\")
-WINDOWS_DEVICE_NAMES = {
-    "CON", "PRN", "AUX", "NUL", "CONIN$", "CONOUT$",
-    *(f"{port}{number}" for port in ("COM", "LPT") for number in (*"123456789", "\u00b9", "\u00b2", "\u00b3")),
-}
+# Locations have one accepted spelling (agent-work/EVIDENCE-MANIFEST.md); anything else is GATED.
+SEGMENT = re.compile(r"[A-Za-z0-9._~-]+")
+GLOB_SEGMENT = re.compile(r"[A-Za-z0-9._~*?\[\]!-]+")
+WINDOWS_DRIVE_PATH = re.compile(r"[A-Z]:\\")
+# A one-letter scheme would read as a drive (c://x is C:\\x), so schemes have at least two characters.
+URL_FORM = re.compile(r"([a-z][a-z0-9+.-]+)://([^/]*)(/.*)?")
+HOST_NAME = re.compile(r"[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*")
 IPV4 = re.compile(r"(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}")
-NUMERIC_HOST_LABEL = re.compile(r"0[xX][0-9a-fA-F]*|\d+")
+DEFAULT_PORTS = {"http": 80, "https": 443, "ws": 80, "wss": 443, "ftp": 21,
+                 "ssh": 22, "sftp": 22, "rsync": 873, "git": 9418}
+HOST_REQUIRED_SCHEMES = {"http", "https", "ws", "wss", "ftp"}
+NUMERIC_LABEL = re.compile(r"\d+|0x[0-9a-f]*")
+WINDOWS_DEVICE_NAMES = {"CON", "PRN", "AUX", "NUL", *(f"{port}{n}" for port in ("COM", "LPT") for n in range(1, 10))}
+MAX_PATTERN_EXPANSIONS = 6
 
 
 def _fail(message: str) -> None:
@@ -238,170 +234,138 @@ def batch_fingerprint(batch: dict) -> str:
     return hashlib.sha256(_canonical_batch(batch)).hexdigest()
 
 
-def _normalized_repo_path(path: object, *, allow_trailing_slash: bool = False) -> bool:
-    """True for a plain repository-relative path such as `git diff --name-only` prints."""
-    if not isinstance(path, str) or not path or path.startswith("/") or "\\" in path:
-        return False
-    if allow_trailing_slash and path.endswith("/"):
+def _segments_problem(segments: list[str], *, windows: bool = False, glob: bool = False) -> str | None:
+    """Why these path segments are not in the accepted format, or None."""
+    allowed = GLOB_SEGMENT if glob else SEGMENT
+    for segment in segments:
+        if not segment:
+            return "has an empty segment (a repeated or trailing separator)"
+        if segment in {".", ".."}:
+            return f"has a {segment!r} segment"
+        if not allowed.fullmatch(segment):
+            extra = ", *, ?, [, ], !" if glob else ""
+            return f"segment {segment!r} uses characters other than letters, digits, ., _, -, ~{extra}"
+        if glob and re.search(r"[\[\]]", re.sub(r"\[[^\]]*\]", "", segment)):
+            return f"segment {segment!r} has an unmatched [ or ]"
+        # Windows drops a trailing dot, maps NUL, COM1 and the like to devices in every folder, and
+        # reads NAME~1 as an 8.3 short name for a longer one.
+        if windows and (segment.endswith(".") or "~" in segment or
+                        segment.split(".")[0].upper() in WINDOWS_DEVICE_NAMES):
+            return f"Windows segment {segment!r} ends in ., contains ~, or names a device"
+    return None
+
+
+def repo_path_problem(path: object, *, pattern: bool = False) -> str | None:
+    """Why a changed path (or, with pattern=True, a protected-input pattern) is not accepted, or None."""
+    if not isinstance(path, str) or not path:
+        return "is not a nonempty string"
+    if path.startswith("/"):
+        return "must be repository-relative"
+    if pattern and path.endswith("/"):
         path = path[:-1]
-    return all(segment not in {"", ".", ".."} for segment in path.split("/"))
+    return _segments_problem(path.split("/"), glob=pattern)
 
 
-def _windows_segments_ok(segments: list[str]) -> bool:
-    # Windows drops trailing dots and spaces, reads name:stream as the same file, and maps NUL, COM1 and
-    # the like to devices in every directory, so those spell aliases.
-    return all(segment and segment[-1] not in ". " and ":" not in segment and
-               segment.split(".")[0].rstrip(" ").upper() not in WINDOWS_DEVICE_NAMES for segment in segments)
+def batch_path_problem(path: object) -> str | None:
+    """Why a frozen-batch file path is not accepted, or None."""
+    if isinstance(path, str) and WINDOWS_DRIVE_PATH.match(path):
+        return _segments_problem(path[3:].split("\\"), windows=True)
+    if isinstance(path, str) and path.startswith("/"):
+        return _segments_problem(path[1:].split("/"))
+    if isinstance(path, str) and path.startswith("~"):
+        # A shell would expand ~ or ~user to a home directory, so ~/.config is not repository-relative.
+        return "starts with ~, which reads as a home directory"
+    return repo_path_problem(path)
 
 
-def _is_dot_segment(segment: str) -> bool:
-    """A URL path segment that parsers resolve as . or .., including percent-encoded dots."""
-    return re.sub("%2e", ".", segment, flags=re.IGNORECASE) in {".", ".."}
-
-
-def _canonical_path(path: object) -> bool:
-    """One spelling per file: a normalized repository, POSIX-absolute, or Windows-absolute path."""
-    if not isinstance(path, str):
-        return False
-    if WINDOWS_DRIVE.match(path):
-        # A Windows file is spelled C:\\dir\\file; C:/dir, C:dir, and mixed separators would alias it.
-        rest = path[3:]
-        return (path[2:3] == "\\" and "/" not in rest and _normalized_repo_path(rest.replace("\\", "/")) and
-                _windows_segments_ok(rest.split("\\")))
-    return _normalized_repo_path(path[1:] if path.startswith("/") else path)
-
-
-def _path_key(path: str) -> str:
-    """Comparison key for a canonical batch path, so Unicode or drive-case variants still collide."""
-    key = unicodedata.normalize("NFC", path)
-    return key.casefold() if WINDOWS_DRIVE.match(key) else key
-
-
-def _destination_key(destination: object) -> str | None:
-    """Comparison key for a deployment destination, or None when its spelling is ambiguous."""
-    if not isinstance(destination, str) or not destination.strip() or destination != destination.strip():
+def destination_problem(destination: object) -> str | None:
+    """Why a deployment destination is not in the accepted format, or None."""
+    if not isinstance(destination, str) or not destination:
+        return "is not a nonempty string"
+    if destination == "/":
         return None
-    if any(ord(char) < 0x20 or ord(char) == 0x7F for char in destination):
-        # URL parsers drop tabs and newlines anywhere, so ..\t would still resolve as ..
-        return None
-    if WINDOWS_NAMESPACE.match(destination) or SLASHLESS_URL.match(destination):
-        # Win32 namespace prefixes skip path normalization, and slashless URLs dodge the URL rules.
-        return None
-    key = unicodedata.normalize("NFC", destination)
-    windows = bool(WINDOWS_ABSOLUTE.match(key))
-    if WINDOWS_DRIVE.match(key) and not windows and not URL_SCHEME.match(key):
-        # C:dir is relative to that drive's current directory, so it names no fixed location.
-        return None
-    scheme = None if windows else URL_SCHEME.match(key)
-    if scheme:
-        return _url_key(key[:scheme.end() - 3].lower(), key[scheme.end():])
-    key = key.replace("\\", "/")
-    # An scp-style host:./dir hides its dot segment behind the colon.
-    if any(segment in {".", ".."} for segment in re.split("[/:]", key)):
-        return None
-    if windows and not _windows_segments_ok([segment for segment in key.split("/")[1:] if segment]):
-        return None
-    # Repeated or trailing separators name the same location; a lone root keeps its slash.
-    key = re.sub("/+", "/", key)
-    key = key.rstrip("/") or key[:1]
-    if not key:
-        return None
-    # Drive and UNC paths are case-insensitive and never name the same place as a POSIX path.
-    return "windows:" + key.casefold() if windows else key
-
-
-def _special_host(host: str) -> str | None:
-    """A web URL host in the one spelling parsers keep, or None for a form they would rewrite."""
-    if "%" in host or not host.isascii():
-        # Percent-encoded, full-width, and Unicode hosts are decoded or IDNA-mapped by parsers,
-        # and an IPv6 zone ID is invalid in a URL.
-        return None
-    if host.startswith("["):
+    if destination.startswith("/"):
+        return _segments_problem(destination[1:].split("/"))
+    if WINDOWS_DRIVE_PATH.match(destination):
+        return None if destination == destination[:3] else _segments_problem(destination[3:].split("\\"), windows=True)
+    if destination.startswith("\\\\"):
+        parts = destination[2:].split("\\")
+        return "UNC path needs \\\\server\\share" if len(parts) < 2 else _segments_problem(parts, windows=True)
+    match = URL_FORM.fullmatch(destination)
+    if not match:
+        return "is not an absolute path, C:\\ path, \\\\server\\share path, or lowercase scheme://host/path URL"
+    scheme, authority, path = match.groups()
+    if scheme == "file":
+        return "file: URLs are written as the plain path"
+    if path is not None:
+        problem = _segments_problem(path[1:].split("/"))
+        if problem:
+            return f"URL path {problem}"
+    if not authority:
+        if scheme in HOST_REQUIRED_SCHEMES:
+            return f"{scheme}: URL needs a host"
+        return "URL without a host needs a path" if path is None else None
+    if "@" in authority:
+        return "URL has user info"
+    if authority.startswith("["):
+        host, bracket, after = authority[1:].partition("]")
+        if not bracket:
+            return "URL host is missing the closing ] of its IPv6 address"
+        port = after[1:] if after.startswith(":") else None
+        if after and port is None:
+            return "URL has text after the IPv6 address"
         try:
-            return f"[{ipaddress.IPv6Address(host[1:-1]).compressed}]"
+            address = ipaddress.IPv6Address(host)
         except ValueError:
-            return None
-    labels = host.split(".")
-    last = labels[-1] or (labels[-2] if len(labels) > 1 else "")
-    if NUMERIC_HOST_LABEL.fullmatch(last) and not IPV4.fullmatch(host):
-        # 127.1, 2130706433, and 0x7f.1 all parse as 127.0.0.1.
-        return None
-    return host
-
-
-def _url_key(scheme: str, rest: str) -> str | None:
-    """Location key for scheme://rest: the host is case-insensitive, everything else compares as written."""
-    if "\\" in rest:
-        # Parsers read \ as / in web URLs, which would hide .. segments and aliases from these checks.
-        return None
-    end = re.search(r"[/?#]", rest)
-    authority, route = (rest[:end.start()], rest[end.start():]) if end else (rest, "")
-    userinfo, at, hostport = authority.rpartition("@")
-    if hostport.startswith("["):
-        host = hostport[:hostport.find("]") + 1] if "]" in hostport else ""
+            return "URL host is not an IPv6 address"
+        if "%" in host or address.ipv4_mapped is not None or address.compressed != host:
+            return f"IPv6 host must be written in compressed form, without a zone or IPv4 mapping ({address.compressed})"
     else:
-        host = hostport.partition(":")[0]
-    local_file = scheme == "file" and not at and host.lower() in {"", "localhost"} and hostport == host
-    if scheme == "file" and not local_file:
-        # file://server/share is a UNC path in disguise.
-        return None
-    if local_file or (not authority and scheme not in HOST_REQUIRED_SCHEMES):
-        # A local path takes no query or fragment, and its dot segments and separators may be percent-encoded;
-        # file:///C:/x and file:///C|/x name a Windows drive.
-        if (not route.startswith("/") or "?" in route or "#" in route or re.search("%(2f|5c)", route, re.IGNORECASE) or
-                re.match(r"/[A-Za-z][:|]", route) or any(map(_is_dot_segment, route.split("/")))):
-            return None
-        local = _destination_key(route)
-        return local if local_file or local is None else f"{scheme}:{local}"
-    if not host.strip("[]"):
-        return None
-    after_host = hostport[len(host):]
-    if after_host and not after_host.startswith(":"):
-        return None
-    if scheme in HOST_REQUIRED_SCHEMES:
-        host = _special_host(host)
-        if host is None or (at and not userinfo):
-            # Web URL parsers rewrite these hosts and drop an empty user@, so other spellings would alias them.
-            return None
-    port = after_host[1:]
-    if port:
-        if not port.isdigit() or not port.isascii() or len(port) > 5 or int(port) > 65535:
-            return None
-        # :0443 and :443 are the same port, and the scheme's default port is the same as none.
-        port = "" if int(port) == DEFAULT_PORTS.get(scheme) else str(int(port))
-    path = re.split(r"[?#]", route, maxsplit=1)[0]
-    if any(map(_is_dot_segment, path.split("/"))):
-        return None
-    if not route.startswith("/"):
-        # https://host?q and https://host/?q name the same resource.
-        route = "/" + route
-    return f"{scheme}://{userinfo}{at}{host.lower()}{':' if port else ''}{port}{route}"
+        host, colon, port = authority.partition(":")
+        port = port if colon else None
+        if not HOST_NAME.fullmatch(host):
+            return "URL host must be lowercase letters, digits, - and ."
+        if NUMERIC_LABEL.fullmatch(host.rsplit(".", 1)[-1]) and not IPV4.fullmatch(host):
+            # Parsers read 127.1, 2130706433 and 0x7f000001 as 127.0.0.1.
+            return "numeric URL host must be a dotted-quad IPv4 address"
+    if port is not None:
+        if not port.isascii() or not port.isdigit() or port.startswith("0") or len(port) > 5 or int(port) > 65535:
+            return "URL port must be a number from 1 to 65535 without leading zeros"
+        if int(port) == DEFAULT_PORTS.get(scheme):
+            return f"URL port {port} is the {scheme} default and is left out"
+    return None
+
+
+def _batch_path_key(path: str) -> str:
+    # Windows paths are case-insensitive, so C:\App and C:\app are one file.
+    return path.casefold() if WINDOWS_DRIVE_PATH.match(path) else path
+
+
+def _destination_key(destination: str) -> str:
+    # Drive and UNC paths are case-insensitive; every other accepted destination has one spelling.
+    windows = WINDOWS_DRIVE_PATH.match(destination) or destination.startswith("\\\\")
+    return destination.casefold() if windows else destination
 
 
 @functools.lru_cache(maxsize=1024)
 def _pattern_spellings(pattern: str) -> frozenset[str] | None:
-    """Globs a protected pattern stands for, or None if it has too many [ and ** to expand."""
-    brackets = [index for index, char in enumerate(pattern) if char == "["]
-    recursive = [index for index, segment in enumerate(pattern.split("/")) if segment == "**"]
-    if len(brackets) + len(recursive) > MAX_PATTERN_EXPANSIONS:
+    """Globs a protected pattern stands for, or None if it has too many ** segments to expand."""
+    segments = pattern.split("/")
+    recursive = [index for index, segment in enumerate(segments) if segment == "**"]
+    if len(recursive) > MAX_PATTERN_EXPANSIONS:
         return None
     spellings: set[str] = set()
-    # Each [ may open a character class or be a literal bracket, as in pages/[id]/[0-9].json.
-    for literal in itertools.product((False, True), repeat=len(brackets)):
-        escaped = {index for index, is_literal in zip(brackets, literal) if is_literal}
-        segments = "".join("[[]" if index in escaped else char for index, char in enumerate(pattern)).split("/")
-        recursive = [index for index, segment in enumerate(segments) if segment == "**"]
-        # A ** segment also stands for no directories at all.
-        for dropped in itertools.product((False, True), repeat=len(recursive)):
-            skip = {index for index, drop in zip(recursive, dropped) if drop}
-            spellings.add("/".join(segment for index, segment in enumerate(segments) if index not in skip))
+    # A ** segment also stands for no directories at all.
+    for dropped in itertools.product((False, True), repeat=len(recursive)):
+        skip = {index for index, drop in zip(recursive, dropped) if drop}
+        spellings.add("/".join(segment for index, segment in enumerate(segments) if index not in skip))
     return frozenset(spellings)
 
 
 @functools.lru_cache(maxsize=1024)
 def _protected_matcher(pattern: str) -> tuple[frozenset[str], tuple[str, ...], re.Pattern[str]] | None:
     """Literal paths, subtree prefixes, and one compiled glob for a pattern; None protects every path."""
-    spellings = _pattern_spellings(unicodedata.normalize("NFC", pattern))
+    spellings = _pattern_spellings(pattern)
     if spellings is None:
         return None
     literals: set[str] = set()
@@ -440,14 +404,13 @@ def classify_divergence(*, identical: bool, object_present: bool = False,
     if destructive:
         return "destructive"
     if (ancestry_proven and changed_paths_inspected and deployment_inputs_unchanged and
-        # Unnormalized spellings such as ./services/x could slip past a protected pattern.
-        isinstance(changed_paths, list) and all(_normalized_repo_path(path) for path in changed_paths) and
+        # A path outside the accepted format (./services/x, a quoted name) could slip past a pattern.
+        isinstance(changed_paths, list) and all(repo_path_problem(path) is None for path in changed_paths) and
         isinstance(deployment_input_paths, list) and deployment_input_paths and
-        all(_normalized_repo_path(path, allow_trailing_slash=True) for path in deployment_input_paths)):
+        all(repo_path_problem(path, pattern=True) is None for path in deployment_input_paths)):
         # Build every matcher once per call; a per-pair cache lookup thrashes once patterns outnumber it.
         matchers = [_protected_matcher(pattern) for pattern in deployment_input_paths]
-        paths = [unicodedata.normalize("NFC", path) for path in changed_paths]
-        if any(_matches_protected(path, matcher) for path in paths for matcher in matchers):
+        if any(_matches_protected(path, matcher) for path in changed_paths for matcher in matchers):
             return "protected_change"
         return "known_additive"
     return "unknown"
@@ -566,15 +529,15 @@ def live_gate_state(data: dict, evidence_path: Path | None = None, *, allow_comp
     for key in BATCH_PATH_LISTS:
         entries = batch[key]
         if not isinstance(entries, list) or any(
-            not isinstance(entry, dict) or not _canonical_path(entry.get("path")) or
+            not isinstance(entry, dict) or batch_path_problem(entry.get("path")) is not None or
             not isinstance(entry.get("sha256"), str) or not SHA256.fullmatch(entry["sha256"])
             for entry in entries
-        ) or len({_path_key(entry["path"]) for entry in entries}) != len(entries):
+        ) or len({_batch_path_key(entry["path"]) for entry in entries}) != len(entries):
             # A repeated path is ambiguous about which bytes were frozen.
             return "GATED"
         for entry in entries:
             # One file may serve two roles, but never with two different contents.
-            if frozen_hashes.setdefault(_path_key(entry["path"]), entry["sha256"]) != entry["sha256"]:
+            if frozen_hashes.setdefault(_batch_path_key(entry["path"]), entry["sha256"]) != entry["sha256"]:
                 return "GATED"
     if not batch["validators"]:
         # A batch frozen without any validator has proven nothing about the candidate.
@@ -584,7 +547,7 @@ def live_gate_state(data: dict, evidence_path: Path | None = None, *, allow_comp
         return "GATED"
     for target in targets:
         if (not isinstance(target, dict) or
-            _destination_key(target.get("destination")) is None or
+            destination_problem(target.get("destination")) is not None or
             "mode" not in target):
             return "GATED"
         mode = target["mode"]
@@ -625,7 +588,7 @@ def live_gate_state(data: dict, evidence_path: Path | None = None, *, allow_comp
     # An empty declaration stays invalid; batch files only add to a real one.
     if isinstance(protected, list) and protected:
         protected = protected + [entry["path"] for key in BATCH_PATH_LISTS for entry in batch[key]
-                                 if _normalized_repo_path(entry["path"])]
+                                 if repo_path_problem(entry["path"]) is None]
     if classify_divergence(
         identical=divergence.get("identical") is True,
         object_present=divergence.get("objectPresent") is True,
@@ -648,6 +611,34 @@ def live_gate_state(data: dict, evidence_path: Path | None = None, *, allow_comp
                        attempt.get("frozenBatchFingerprint") == fingerprint and
                        attempt.get("taskStatus") not in ({"failed", "skipped"} if allow_completed else
                                                          {"failed", "complete", "passed", "skipped"})) else "PREVIEW"
+
+
+def evidence_format_problems(data: dict, evidence_path: Path | None = None) -> list[str]:
+    """Locations in the latest readiness record that are not in the accepted format, as readable messages."""
+    deployment = data.get("deployment")
+    records_data = _read_evidence(data, evidence_path) if isinstance(deployment, dict) else None
+    if records_data is None:
+        return []
+    readiness = [record for record in records_data["records"] if record.get("taskId") == deployment.get("readiness_task")]
+    if not readiness:
+        return []
+    record, problems = readiness[-1], []
+    batch = record.get("frozenBatch") if isinstance(record.get("frozenBatch"), dict) else {}
+    for key in BATCH_PATH_LISTS:
+        for entry in batch.get(key) if isinstance(batch.get(key), list) else []:
+            path = entry.get("path") if isinstance(entry, dict) else None
+            if (problem := batch_path_problem(path)) is not None:
+                problems.append(f"frozenBatch.{key} path {path!r} {problem}")
+    for target in batch.get("deploymentTargets") if isinstance(batch.get("deploymentTargets"), list) else []:
+        destination = target.get("destination") if isinstance(target, dict) else None
+        if (problem := destination_problem(destination)) is not None:
+            problems.append(f"deploymentTargets destination {destination!r} {problem}")
+    divergence = record.get("gitDivergence") if isinstance(record.get("gitDivergence"), dict) else {}
+    for key, pattern in (("changedPaths", False), ("deploymentInputPaths", True)):
+        for path in divergence.get(key) if isinstance(divergence.get(key), list) else []:
+            if (problem := repo_path_problem(path, pattern=pattern)) is not None:
+                problems.append(f"gitDivergence.{key} entry {path!r} {problem}")
+    return problems
 
 
 def final_reconciliation_ready(data: dict, evidence_path: Path | None = None) -> bool:
@@ -777,6 +768,8 @@ def print_task(phase: str, task_id: str, data: dict) -> None:
     if gate is not None:
         if gate == "GATED":
             print("Do not dispatch this live task; its required evidence or dependency gate is closed.")
+            for problem in evidence_format_problems(data):
+                print(f"Format problem: {problem}")
         elif gate == "PREVIEW":
             print("Approval preview only; do not dispatch or mutate live state.")
         else:

@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed. Once approved by the repository owner, this document decides which review findings are defects to fix and which are recorded as out of scope. Changing it is a scope decision for the owner, not a repair a builder or reviewer may make.
+Approved by the repository owner. This document decides which review findings are defects to fix and which are recorded as out of scope. Changing it is a scope decision for the owner, not a repair a builder or reviewer may make.
 
 ## What Workflow protects
 
@@ -71,26 +71,24 @@ From the independent review of PR #10 (`329f5ff`, `v0.1.0-alpha.9`):
 
 | Finding | Classification |
 | --- | --- |
-| Rewritten loose objects or an inherited `GIT_TEST_COMMIT_GRAPH` fool the documented Git commands | Out of scope: deliberate tampering. The docs should still say to run the commands with no inherited `GIT_*` variables, since that also covers accidental leftovers (in scope, item 4). |
-| `file:///C%3A/srv/app` and `file:///srv/%61pp` alias plain paths | In scope, item 2 (Low). Resolved by the proposed follow-up. |
-| `https://:@host` aliases `https://host` | In scope, item 2 (Low). Resolved by the proposed follow-up. |
-| `ssh://[0:0::1]` and `ssh://[::1]` get different keys | In scope, item 2 (Low). Resolved by the proposed follow-up. |
-| Docs describe the `//` prefix only as UNC | In scope, item 5 (Low). |
-| Commit-graph test helper assumes SHA-1 repositories | Low: test robustness. |
+| Rewritten loose objects or an inherited `GIT_TEST_COMMIT_GRAPH` fool the documented Git commands | Out of scope: deliberate tampering. The docs now say to run the commands with no inherited `GIT_*` variables, which covers accidental leftovers (in scope, item 4). |
+| `file:///C%3A/srv/app` and `file:///srv/%61pp` alias plain paths | In scope, item 2 (Low). Resolved: `file:` URLs and `%` are outside the accepted format. |
+| `https://:@host` aliases `https://host` | In scope, item 2 (Low). Resolved: user info is outside the accepted format. |
+| `ssh://[0:0::1]` and `ssh://[::1]` get different keys | In scope, item 2 (Low). Resolved: every URL's IPv6 host must be in compressed form. |
+| Docs describe the `//` prefix only as UNC | In scope, item 5 (Low). Resolved: the accepted-format rules list every accepted form. |
+| Commit-graph test helper assumes SHA-1 repositories | Low: test robustness. Resolved: the git-backed tests create SHA-1 repositories explicitly. |
 
-## Proposed follow-up: one accepted format
+## One accepted format
 
-Today the helper tries to recognise every way of writing the same destination or path, and each review finds another. The proposal is to accept one plain format and reject everything else:
+Approved by the owner and implemented. Instead of recognising every way of writing the same destination or path, the helper accepts one plain format and rejects everything else. The exact rules are in `agent-work/EVIDENCE-MANIFEST.md`; in summary:
 
 - **Destinations** are one of: an absolute POSIX path, a Windows drive path (`C:\...`), a UNC path (`\\server\share\...`), a URL written `scheme://host[:port]/path`, or a hostless URL written `scheme:///path` (such as `unix:///run/app.sock`). The scheme and host are lowercase ASCII, an IPv6 host is in compressed form, and a port is written only when it is not the scheme's default. Every path segment uses only letters, digits, `.`, `_`, `-` and `~`, and is not `.` or `..`. No user info, percent-encoding, query, fragment, whitespace, or trailing separator.
-- **Batch paths, changed paths, and protected-input patterns** follow the same character rule, with the glob characters `*`, `?`, `[` and `]` allowed only in protected-input patterns.
+- **Batch paths, changed paths, and protected-input patterns** follow the same character rule, with the glob characters `*`, `?`, `[`, `]` and `!` allowed only in protected-input patterns.
 - **Anything else is `GATED`** with a message saying which rule it broke, so the coordinator can rewrite it in the accepted form.
 
 Trade-offs:
 
-- Most of the spelling code (Windows device names, URL normalisation, Unicode handling) becomes unnecessary and can be removed.
+- The URL normalisation, Unicode handling and alias-resolution code was removed. Windows device-name and trailing-dot checks remain, because those aliases use plain characters.
 - Destinations or files whose real names use other characters (spaces, non-ASCII) cannot be deployed through the gate until the owner widens the format.
-- scp-style destinations (`host:/path`) would be written as `ssh://host/path`, and `file:///path` as the plain path.
+- scp-style destinations (`host:/path`) are written as `ssh://host/path`, and `file:///path` as the plain path. Trailing slashes are not written, so an S3 prefix is `s3://bucket/releases`, not `s3://bucket/releases/`.
 - Fingerprints are unchanged; only which evidence is accepted changes.
-
-This needs the owner's approval before it is built.
