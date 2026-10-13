@@ -20,7 +20,7 @@ A = "complete"
 B = "passed"
 C = "complete"
 R = "complete"
-J = "pending"
+J = "in_progress"
 V = "blocked"
 K = "blocked"
 
