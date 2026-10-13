@@ -10,6 +10,7 @@ import hashlib
 import ipaddress
 import itertools
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -938,4 +939,12 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    try:
+        status = main()
+        if sys.stdout is not None:
+            sys.stdout.flush()
+    except BrokenPipeError:
+        # The reader closed the pipe early (for example `| head`): exit quietly, without a traceback.
+        os.dup2(os.open(os.devnull, os.O_WRONLY), sys.stdout.fileno())
+        sys.exit(1)
+    sys.exit(status)
