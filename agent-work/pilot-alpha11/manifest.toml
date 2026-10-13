@@ -20,8 +20,8 @@ A = "complete"
 B = "passed"
 C = "conditional"
 P = "complete"
-R = "pending"
-J = "blocked"
+R = "complete"
+J = "pending"
 K = "blocked"
 
 [tasks.A]

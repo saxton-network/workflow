@@ -122,6 +122,135 @@
         "path": "scripts/agent-task.py",
         "sha256": "fadb61b1bd081bb72f337e973ec648d36baff39623cc1b08c602a59cccfd1559"
       }
+    },
+    {
+      "taskId": "R",
+      "attempt": 1,
+      "role": "release_readiness",
+      "model": null,
+      "branch": "pilot/alpha11-records",
+      "worktree": null,
+      "baseSha": "d568c5f18986ea122018bde2d1badb257346dd92",
+      "candidateSha": "d568c5f18986ea122018bde2d1badb257346dd92",
+      "deploymentSourceSha": "d568c5f18986ea122018bde2d1badb257346dd92",
+      "taskStatus": "complete",
+      "readinessVerdict": "PASS",
+      "startedAt": null,
+      "completedAt": null,
+      "changedPaths": [],
+      "reviewFindingIds": [],
+      "approvalReference": null,
+      "rollbackArtifact": {
+        "identity": "github-release-v0.1.0-alpha.10",
+        "provenance": "agent-work/pilot-alpha11/results/R-rollback-alpha10.md"
+      },
+      "frozenBatch": {
+        "deploymentSourceSha": "d568c5f18986ea122018bde2d1badb257346dd92",
+        "deployableArtifactSha256": "b8c4c8c0a4ce76bd6851ae18a161e556a95f8c765639a62ab064ed3c2bd6c2f1",
+        "deploymentConfiguration": [
+          {
+            "path": ".github/workflows/release.yml",
+            "sha256": "57c20477be82406b9053d9945d48ac53e5bad8a11068d38b72c2d25c21da9562"
+          },
+          {
+            "path": "agent-work/pilot-alpha11/results/R-dispatch-inputs.json",
+            "sha256": "2d6ae426fafd6378d2d8b4fba1317f076cf3732c35fd7a8330d7df1d0ee39d90"
+          },
+          {
+            "path": "agent-work/pilot-alpha11/results/R-expected-checksum.txt",
+            "sha256": "5dccd42e1288202991278e56f84b1bcc84575d6004c10d525c31524f3241921f"
+          }
+        ],
+        "validators": [
+          {
+            "path": "scripts/validate-repository.sh",
+            "sha256": "45eba69bf41f17ca4d1ea646e4d4bc8e3bcd1cf407a8ae3b698effe1032a2ebe"
+          },
+          {
+            "path": "scripts/check-release-version.sh",
+            "sha256": "939911f6527179a3171d5e1f1db222b37af2d477ab8d1d396a9ce74426a8c075"
+          },
+          {
+            "path": "scripts/agent-task.py",
+            "sha256": "fadb61b1bd081bb72f337e973ec648d36baff39623cc1b08c602a59cccfd1559"
+          },
+          {
+            "path": "scripts/tests/test_agent_workflow.py",
+            "sha256": "408aad5d1952fcb2adb2cef32b6b3cf1227458af3fc80d617872b3cdcfdd5360"
+          }
+        ],
+        "rollbackArtifact": {
+          "identity": "github-release-v0.1.0-alpha.10",
+          "provenance": "agent-work/pilot-alpha11/results/R-rollback-alpha10.md"
+        },
+        "installedScripts": [],
+        "deploymentTargets": [
+          {
+            "destination": "https://github.com/saxton-network/workflow/releases/tag/v0.1.0-alpha.11",
+            "mode": null
+          },
+          {
+            "destination": "https://github.com/saxton-network/workflow/releases/download/v0.1.0-alpha.11/workflow-v0.1.0-alpha.11.zip",
+            "mode": null
+          },
+          {
+            "destination": "https://github.com/saxton-network/workflow/releases/download/v0.1.0-alpha.11/workflow-v0.1.0-alpha.11.zip.sha256",
+            "mode": null
+          }
+        ]
+      },
+      "frozenBatchFingerprint": "a4724dc9718a7bf3cc11a4dd0de9139d2e660001ae59ddf75c8443c68818d83b",
+      "gitDivergence": {
+        "identical": true,
+        "authoritySha": "d568c5f18986ea122018bde2d1badb257346dd92",
+        "otherSha": "d568c5f18986ea122018bde2d1badb257346dd92"
+      },
+      "validation": [
+        {
+          "checkId": "validate-repository",
+          "inputFingerprint": null,
+          "validatorSha256": "45eba69bf41f17ca4d1ea646e4d4bc8e3bcd1cf407a8ae3b698effe1032a2ebe",
+          "exitCode": 0,
+          "verdict": "PASS",
+          "recordedAt": null,
+          "evidencePath": "agent-work/pilot-alpha11/results/R.md"
+        },
+        {
+          "checkId": "zip-reproducible",
+          "inputFingerprint": "b8c4c8c0a4ce76bd6851ae18a161e556a95f8c765639a62ab064ed3c2bd6c2f1",
+          "validatorSha256": null,
+          "exitCode": 0,
+          "verdict": "PASS",
+          "recordedAt": null,
+          "evidencePath": "agent-work/pilot-alpha11/results/R.md"
+        }
+      ],
+      "evidence": [
+        {
+          "path": "agent-work/pilot-alpha11/results/R.md",
+          "sha256": "934f1fb744aeaa8605793a95bf5c067ccc8cff5a730f12c0cf5c9248b875c3e1"
+        },
+        {
+          "path": "agent-work/pilot-alpha11/results/R-baseline.json",
+          "sha256": "53d43c79fc2474801e1bb0929b6a0ccf2fed31f628238aa5350986adbd0a41fc"
+        },
+        {
+          "path": "agent-work/pilot-alpha11/results/R-rollback-alpha10.md",
+          "sha256": "e438f698ab0bf5c0c1c77aeaf0a957fe32d3cdeb080addff74ee8be2b8a47277"
+        },
+        {
+          "path": "agent-work/pilot-alpha11/results/R-dispatch-inputs.json",
+          "sha256": "2d6ae426fafd6378d2d8b4fba1317f076cf3732c35fd7a8330d7df1d0ee39d90"
+        },
+        {
+          "path": "agent-work/pilot-alpha11/results/R-expected-checksum.txt",
+          "sha256": "5dccd42e1288202991278e56f84b1bcc84575d6004c10d525c31524f3241921f"
+        }
+      ],
+      "helper": {
+        "path": "scripts/agent-task.py",
+        "sha256": "fadb61b1bd081bb72f337e973ec648d36baff39623cc1b08c602a59cccfd1559"
+      }
     }
   ]
 }
