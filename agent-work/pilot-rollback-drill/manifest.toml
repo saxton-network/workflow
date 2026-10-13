@@ -17,9 +17,9 @@ terminal_task = "K"
 
 [status]
 A = "complete"
-B = "pending"
+B = "passed"
 C = "complete"
-R = "blocked"
+R = "pending"
 J = "blocked"
 V = "blocked"
 K = "blocked"

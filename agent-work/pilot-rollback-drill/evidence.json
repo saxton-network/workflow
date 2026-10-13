@@ -125,6 +125,45 @@
         "path": "scripts/agent-task.py",
         "sha256": "52cf1893439688b4ce80ca1b08ea27aff3ca41b99fbbaad4a155878d0a7b8d5a"
       }
+    },
+    {
+      "taskId": "B",
+      "attempt": 2,
+      "role": "independent_review",
+      "model": null,
+      "branch": "pilot/rollback-drill-records",
+      "worktree": null,
+      "baseSha": "92c51e6c69d7ed29ee6e879733ad4b801a82814e",
+      "candidateSha": "92c51e6c69d7ed29ee6e879733ad4b801a82814e",
+      "deploymentSourceSha": "92c51e6c69d7ed29ee6e879733ad4b801a82814e",
+      "taskStatus": "passed",
+      "readinessVerdict": null,
+      "startedAt": null,
+      "completedAt": null,
+      "changedPaths": [],
+      "reviewFindingIds": [],
+      "approvalReference": null,
+      "validation": [
+        {
+          "checkId": "helper-states",
+          "inputFingerprint": null,
+          "validatorSha256": null,
+          "exitCode": 0,
+          "verdict": "PASS",
+          "recordedAt": null,
+          "evidencePath": "agent-work/pilot-rollback-drill/results/B-2.md"
+        }
+      ],
+      "evidence": [
+        {
+          "path": "agent-work/pilot-rollback-drill/results/B-2.md",
+          "sha256": "9ac542089443ac0c77905190205a9f1ca65aa896455320a29482b1f7aa3a1aa6"
+        }
+      ],
+      "helper": {
+        "path": "scripts/agent-task.py",
+        "sha256": "52cf1893439688b4ce80ca1b08ea27aff3ca41b99fbbaad4a155878d0a7b8d5a"
+      }
     }
   ]
 }
