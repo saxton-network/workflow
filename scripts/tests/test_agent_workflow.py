@@ -676,8 +676,6 @@ class WorkflowV3Tests(unittest.TestCase):
             ("deploy/prod/run.sh", "deploy/*/"),
             ("Dockerfile", "**/Dockerfile"),
             ("ops/Dockerfile", "**/Dockerfile"),
-            ("pages/[id].tsx", "pages/[id].tsx"),
-            ("pages/[id]/view.tsx", "pages/[id]/"),
             ("deploy/run.sh", "deploy"),
         ):
             with self.subTest(path=path, pattern=pattern):
@@ -837,7 +835,7 @@ class WorkflowV3Tests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as directory:
             repo = Path(directory)
-            git(repo, "init", "-q")
+            git(repo, "init", "-q", "--object-format=sha1")
             (repo / "scripts").mkdir()
             (repo / "scripts" / "install.sh").write_text("echo install\n", encoding="utf-8")
             (repo / "sub").mkdir()
@@ -901,7 +899,7 @@ class WorkflowV3Tests(unittest.TestCase):
                     return subprocess.run(["git", *identity, *args], cwd=repo, env={**env, **(extra or {})},
                                           capture_output=True, text=True)
 
-                git("init", "-q")
+                git("init", "-q", "--object-format=sha1")
                 git("commit", "-q", "--allow-empty", "-m", "authority")
                 authority = git("rev-parse", "HEAD").stdout.strip()
                 git("checkout", "-q", "--orphan", "unrelated")
@@ -922,7 +920,7 @@ class WorkflowV3Tests(unittest.TestCase):
                                  .returncode, 0)
                 self.assertEqual(git(*hardened, *ancestry, extra=no_grafts).returncode, 1)
 
-    def test_recursive_and_bracketed_patterns_cover_their_paths(self) -> None:
+    def test_recursive_and_class_patterns_cover_their_paths(self) -> None:
         base = dict(
             identical=False,
             object_present=True,
@@ -935,10 +933,7 @@ class WorkflowV3Tests(unittest.TestCase):
             ("deploy/prod/app.yml", "deploy/**/*.yml"),
             ("services/Dockerfile", "services/**/Dockerfile"),
             ("a/b", "a/**/**/b"),
-            ("pages/[id]/view.tsx", "pages/[id]/**"),
-            ("pages/[id]/view.tsx", "pages/[id]/*"),
             ("pages/i/view.tsx", "pages/[id]/**"),
-            ("docs/caf\u00e9.md", "docs/cafe\u0301.md"),
             ("anything/at/all.txt", "/".join(["**"] * 7) + "/x"),
         ):
             with self.subTest(path=path, pattern=pattern):
@@ -959,124 +954,6 @@ class WorkflowV3Tests(unittest.TestCase):
                         **base, changed_paths=[path], deployment_input_paths=[pattern]
                     ),
                     "known_additive",
-                )
-
-    def test_destination_aliases_are_gated(self) -> None:
-        manifest = self.deploy_manifest()
-        for destination in (
-            "/srv//example/app",
-            "//srv/example/app",
-            "/srv/example/app//",
-            "\\srv\\example\\app",
-        ):
-            evidence = self.evidence()
-            evidence["records"][2]["frozenBatch"]["deploymentTargets"].append(
-                {"destination": destination, "mode": "0777"}
-            )
-            self.refingerprint(evidence)
-            with self.subTest(destination=destination):
-                self.assertEqual(self.gate(manifest, evidence), "GATED")
-
-        for first, second in (
-            ("C:\\srv\\app", "c:\\SRV\\app\\"),
-            ("C:\\srv\\app", "C:/SRV/app"),
-            ("\\\\Server\\Share\\app", "\\\\server\\share\\app"),
-            ("/srv/caf\u00e9", "/srv/cafe\u0301"),
-            ("HTTPS://Deploy.Example/api", "https://deploy.example/api"),
-            ("https://deploy.example", "https://deploy.example/"),
-            ("file:///srv/app", "/srv/app"),
-        ):
-            evidence = self.evidence()
-            evidence["records"][2]["frozenBatch"]["deploymentTargets"] = [
-                {"destination": first, "mode": None},
-                {"destination": second, "mode": None},
-            ]
-            self.refingerprint(evidence)
-            with self.subTest(first=first, second=second):
-                self.assertEqual(self.gate(manifest, evidence), "GATED")
-
-        for destination in ("C:\\srv\\.\\app", "https://deploy.example/../api", "   ", "C:srv\\app", "https:///api"):
-            evidence = self.evidence()
-            evidence["records"][2]["frozenBatch"]["deploymentTargets"] = [
-                {"destination": destination, "mode": None}
-            ]
-            self.refingerprint(evidence)
-            with self.subTest(ambiguous=destination):
-                self.assertEqual(self.gate(manifest, evidence), "GATED")
-
-    def test_prefix_root_and_windows_locations_are_accepted(self) -> None:
-        manifest = self.deploy_manifest()
-        for destination in ("s3://bucket/releases/", "https://deploy.example/", "/", "C:\\srv\\app\\"):
-            evidence = self.evidence()
-            evidence["records"][2]["frozenBatch"]["deploymentTargets"] = [
-                {"destination": destination, "mode": None}
-            ]
-            self.refingerprint(evidence)
-            with self.subTest(destination=destination):
-                self.assertEqual(self.gate(manifest, evidence), "READY")
-
-        evidence = self.evidence()
-        evidence["records"][2]["frozenBatch"]["deploymentConfiguration"].append(
-            {"path": "C:\\ProgramData\\app\\app.json", "sha256": "1" * 64}
-        )
-        self.refingerprint(evidence)
-        self.assertEqual(self.gate(manifest, evidence), "READY")
-
-        for path in ("C:\\ProgramData\\app\\", "C:\\ProgramData/app.json", "C:\\a\\..\\b",
-                     "C:/ProgramData/app.json", "C:ProgramData\\app.json"):
-            evidence = self.evidence()
-            evidence["records"][2]["frozenBatch"]["deploymentConfiguration"].append(
-                {"path": path, "sha256": "1" * 64}
-            )
-            self.refingerprint(evidence)
-            with self.subTest(path=path):
-                self.assertEqual(self.gate(manifest, evidence), "GATED")
-
-    def test_distinct_locations_do_not_collide(self) -> None:
-        manifest = self.deploy_manifest()
-        for first, second in (
-            ("s3://bucket/a//b", "s3://bucket/a/b"),
-            ("https://deploy.example/api", "https://deploy.example/api/"),
-            ("https://deploy.example/api?q=1/", "https://deploy.example/api?q=1"),
-            ("\\\\server\\share\\app", "/server/share/app"),
-            ("/srv/App", "/srv/app"),
-        ):
-            evidence = self.evidence()
-            evidence["records"][2]["frozenBatch"]["deploymentTargets"] = [
-                {"destination": first, "mode": None},
-                {"destination": second, "mode": None},
-            ]
-            self.refingerprint(evidence)
-            with self.subTest(first=first, second=second):
-                self.assertEqual(self.gate(manifest, evidence), "READY")
-
-        evidence = self.evidence()
-        evidence["records"][2]["frozenBatch"]["deploymentTargets"] = [
-            {"destination": "https://deploy.example/a?next=/../b", "mode": None}
-        ]
-        self.refingerprint(evidence)
-        self.assertEqual(self.gate(manifest, evidence), "READY")
-
-    def test_mixed_literal_and_class_brackets_are_protected(self) -> None:
-        base = dict(
-            identical=False,
-            object_present=True,
-            ancestry_proven=True,
-            changed_paths_inspected=True,
-            deployment_inputs_unchanged=True,
-        )
-        for path, pattern, expected in (
-            ("app/[slug]/5.json", "app/[slug]/[0-9].json", "protected_change"),
-            ("app/s/5.json", "app/[slug]/[0-9].json", "protected_change"),
-            ("app/[slug]/x.json", "app/[slug]/[0-9].json", "known_additive"),
-            ("anything.txt", "[a]/[b]/[c]/[d]/[e]/[f]/**/x", "protected_change"),
-        ):
-            with self.subTest(path=path, pattern=pattern):
-                self.assertEqual(
-                    agent_task.classify_divergence(
-                        **base, changed_paths=[path], deployment_input_paths=[pattern]
-                    ),
-                    expected,
                 )
 
     def test_batch_path_aliases_and_conflicting_roles_are_gated(self) -> None:
@@ -1145,141 +1022,172 @@ class WorkflowV3Tests(unittest.TestCase):
         self.refingerprint(evidence)
         return self.gate(self.deploy_manifest(), evidence)
 
-    def test_url_destinations_parse_host_and_reject_backslashes(self) -> None:
+    ACCEPTED_DESTINATIONS = (
+        "/",
+        "/srv/example/app",
+        "/srv/app.d/v1.2",
+        "C:\\",
+        "C:\\srv\\app",
+        "C:\\app\\console.log",
+        "C:\\app\\com0",
+        "\\\\server\\share",
+        "\\\\server\\share\\app",
+        "https://deploy.example",
+        "https://deploy.example/api",
+        "https://deploy.example:8443/api",
+        "http://deploy.example:443/api",
+        "https://127.0.0.1/app",
+        "https://[::1]/app",
+        "https://[2001:db8::1]:8443/x",
+        "https://xn--bcher-kva.example/app",
+        "ssh://deploy-host/srv/app",
+        "s3://bucket/releases",
+        "unix:///run/app.sock",
+    )
+
+    # Spellings outside the accepted format. Most were accepted, or aliased an accepted spelling, in an
+    # earlier review round; they stay here so none of those gaps can reopen.
+    REJECTED_DESTINATIONS = (
+        "",
+        " /srv/app",
+        "/srv/app ",
+        "/srv/app/",
+        "//srv/app",
+        "/srv//app",
+        "/srv/./app",
+        "/srv/../etc",
+        "/srv/a b",
+        "/srv/caf\u00e9",
+        "/srv/%2e%2e/app",
+        "relative/path",
+        "srv\\app",
+        "c:\\srv\\app",
+        "C:/srv/app",
+        "C:srv\\app",
+        "C:\\srv\\app\\",
+        "C:\\srv\\app.",
+        "C:\\a\\NUL",
+        "C:\\a\\nul.txt",
+        "C:\\a\\COM1.log",
+        "C:\\app::$DATA",
+        "\\\\?\\C:\\app",
+        "\\\\.\\pipe\\x",
+        "\\??\\C:\\app",
+        "\\/server\\share",
+        "\\\\server",
+        "file:///srv/app",
+        "file://localhost/srv/app",
+        "file:///C:/srv/app",
+        "file:///C%3A/srv/app",
+        "https:deploy.example/api",
+        "HTTPS://deploy.example/api",
+        "https://Deploy.Example/api",
+        "https://deploy.example/",
+        "https://deploy.example/api/",
+        "https://deploy.example/app/../api",
+        "https://deploy.example/app/%2e%2e/api",
+        "https://deploy.example/app\\..\\api",
+        "https://deploy.example/app/..\t/api",
+        "https://deploy.example?q=1",
+        "https://deploy.example/api?q=1",
+        "https://deploy.example/api#x",
+        "https://user@deploy.example/x",
+        "https://@deploy.example/x",
+        "https://:@deploy.example/x",
+        "https://deploy.example:443/api",
+        "https://deploy.example:08443/api",
+        "https://deploy.example:65536/api",
+        "https://deploy.example:/api",
+        "https://deploy.example:x/api",
+        "https://deploy.example:\u0664\u0664\u0663/api",
+        "https://deploy.example:" + "1" * 5000 + "/x",
+        "https://127.1/app",
+        "https://2130706433/app",
+        "https://0x7f.1/app",
+        "https://1.2.3.4./app",
+        "https://%65xample.com/app",
+        "https://b\u00fccher.example/app",
+        "https://\uff45xample.com/app",
+        "https://[0:0::1]/app",
+        "https://[::1%25eth0]/app",
+        "https://[::ffff:127.0.0.1]/app",
+        "https://[::1]x443/app",
+        "https:///api",
+        "ssh://[0:0::1]/x",
+        "host:srv/app",
+        "host:./app",
+        "unix:///run/%2e%2e/x",
+        "unix:///run/app.sock/",
+    )
+
+    def test_accepted_destination_formats(self) -> None:
+        for destination in self.ACCEPTED_DESTINATIONS:
+            with self.subTest(destination=destination):
+                self.assertIsNone(agent_task.destination_problem(destination))
+        self.assertEqual(self.destinations_gate(*self.ACCEPTED_DESTINATIONS), "READY")
+
+    def test_destinations_outside_the_format_are_gated(self) -> None:
+        for destination in self.REJECTED_DESTINATIONS:
+            with self.subTest(destination=destination):
+                self.assertIsInstance(agent_task.destination_problem(destination), str)
+                self.assertEqual(self.destinations_gate(destination), "GATED")
+
+    def test_windows_destinations_compare_case_insensitively(self) -> None:
         for destinations in (
-            ("https://deploy.example/app\\..\\api", "https://deploy.example/api"),
-            ("https://deploy.example/a\\..\\..\\etc",),
-            ("https://deploy.example\\..\\etc",),
-            ("https://@/x",),
-            ("https://:443/x",),
-            ("https://?q",),
-            ("https://[]/x",),
-            ("https://deploy.example?q=1", "https://deploy.example/?q=1"),
-            ("https://Deploy.Example:8443/x", "https://deploy.example:8443/x"),
-            ("file://localhost/srv/app", "/srv/app"),
-            ("unix:///run/app.sock", "unix:///run//app.sock/"),
+            ("C:\\srv\\app", "C:\\SRV\\app"),
+            ("\\\\server\\share\\app", "\\\\SERVER\\Share\\app"),
         ):
             with self.subTest(destinations=destinations):
                 self.assertEqual(self.destinations_gate(*destinations), "GATED")
+        self.assertEqual(self.destinations_gate("/srv/App", "/srv/app"), "READY")
 
-        for destinations in (
-            ("https://deploy.example?token=ABC", "https://deploy.example?token=abc"),
-            ("https://Alice@deploy.example/x", "https://alice@deploy.example/x"),
-            ("https://deploy.example?next=/../b",),
-            ("unix:///var/run/docker.sock",),
-            ("file:///srv/app",),
-            ("https://[::1]:8443/x",),
-            ("unix:///run/app.sock", "/run/app.sock"),
-        ):
-            with self.subTest(distinct=destinations):
-                self.assertEqual(self.destinations_gate(*destinations), "READY")
+    def test_batch_and_changed_paths_follow_the_format(self) -> None:
+        for path in ("deploy/config", "/etc/app/app.conf", "C:\\ProgramData\\app\\app.json"):
+            with self.subTest(accepted=path):
+                self.assertIsNone(agent_task.batch_path_problem(path))
+        for path in ("./deploy/config", "deploy//config", "deploy/config/", "c:\\x\\y.json", "C:/x/y.json",
+                     "C:\\a\\NUL", "deploy/a b.conf", "deploy/caf\u00e9.conf", "deploy/[id].conf", "deploy/%41"):
+            with self.subTest(rejected=path):
+                self.assertIsInstance(agent_task.batch_path_problem(path), str)
 
-    def test_windows_aliasing_spellings_are_gated(self) -> None:
-        for destinations in (
-            ("C:\\app", "C:\\app."),
-            ("C:\\app", "C:\\app "),
-            ("C:\\app", "\\\\?\\C:\\app"),
-            ("\\\\.\\pipe\\deploy",),
-            ("C:\\app\\data::$DATA",),
-        ):
-            with self.subTest(destinations=destinations):
-                self.assertEqual(self.destinations_gate(*destinations), "GATED")
+        base = dict(
+            identical=False,
+            object_present=True,
+            ancestry_proven=True,
+            changed_paths_inspected=True,
+            deployment_inputs_unchanged=True,
+            deployment_input_paths=["services/**"],
+        )
+        # A changed name outside the format cannot be matched reliably, so the divergence is unknown.
+        for path in ("docs/a b.md", "docs/caf\u00e9.md", "pages/[id].tsx", '"docs/quoted.md"'):
+            with self.subTest(changed=path):
+                self.assertEqual(agent_task.classify_divergence(**base, changed_paths=[path]), "unknown")
+        self.assertEqual(agent_task.classify_divergence(**base, changed_paths=["docs/a-b_c.md"]), "known_additive")
 
+    def test_format_problems_are_reported(self) -> None:
         manifest = self.deploy_manifest()
-        for alias in ("C:\\App\\settings.json.", "C:\\App\\settings.json ", "C:\\App\\settings.json::$DATA"):
-            evidence = self.evidence()
-            evidence["records"][2]["frozenBatch"]["deploymentConfiguration"] += [
-                {"path": "C:\\App\\settings.json", "sha256": "3" * 64},
-                {"path": alias, "sha256": "4" * 64},
-            ]
-            self.refingerprint(evidence)
-            with self.subTest(alias=alias):
-                self.assertEqual(self.gate(manifest, evidence), "GATED")
-
-    def test_destination_spellings_that_parsers_normalize_are_gated(self) -> None:
-        for destinations in (
-            ("https://deploy.example/app/%2e%2e/api", "https://deploy.example/api"),
-            ("https://deploy.example/app/.%2E/api",),
-            ("https://deploy.example/app/..\t/api", "https://deploy.example/api"),
-            ("https://deploy.example/app/.\n./api",),
-            ("unix:///run/%2e%2e/x", "unix:///x"),
-            ("https:deploy.example/api", "https://deploy.example/api"),
-            ("http:\\\\deploy.example\\api",),
-            ("file:/srv/app", "/srv/app"),
-            (" https://deploy.example/api", "https://deploy.example/api"),
-            ("/srv/app ",),
-            ("https://deploy.example:443/api", "https://deploy.example/api"),
-            ("https://deploy.example:/api", "https://deploy.example/api"),
-            ("https://deploy.example:08443/api", "https://deploy.example:8443/api"),
-            ("https://deploy.example:x/api",),
-            ("https://deploy.example:65536/api",),
-            ("https://deploy.example:\u0664\u0664\u0663/api",),
-            ("\\/?\\C:\\app", "C:\\app"),
-            ("/\\?\\C:\\app", "C:\\app"),
-            ("\\/server\\share\\app", "\\\\server\\share\\app"),
-            ("\\\\?\\UNC\\server\\share\\app",),
-            ("C:\\a\\NUL", "C:\\b\\NUL"),
-            ("C:\\app\\com1.log",),
-            ("unix:///run/x?a=b",),
-            ("file:///srv/x#frag",),
-        ):
-            with self.subTest(destinations=destinations):
-                self.assertEqual(self.destinations_gate(*destinations), "GATED")
-
-        for destinations in (
-            ("https://deploy.example:8443/api", "https://deploy.example/api"),
-            ("http://deploy.example:443/api", "https://deploy.example:443/api"),
-            ("https://deploy.example/app/%2e%2ex/api",),
-            ("/srv/%2e%2e/app",),
-            ("C:\\app\\console.log",),
-        ):
-            with self.subTest(distinct=destinations):
-                self.assertEqual(self.destinations_gate(*destinations), "READY")
-
-    def test_host_and_device_spellings_that_alias_are_gated(self) -> None:
-        for destinations in (
-            ("C:\\a\\NUL .txt", "C:\\b\\NUL .txt"),
-            ("C:\\a\\CONOUT$",),
-            ("C:\\a\\conin$.txt",),
-            ("C:\\a\\COM\u00b9",),
-            ("C:\\a\\lpt\u00b2.log",),
-            ("https://127.0.0.1/app", "https://127.1/app"),
-            ("https://2130706433/app",),
-            ("https://0x7f.1/app",),
-            ("https://1.2.3.4./app",),
-            ("https://example.com/app", "https://%65xample.com/app"),
-            ("https://b\u00fccher.example/app",),
-            ("https://\uff45xample.com/app",),
-            ("https://exa\u200bmple.com/app",),
-            ("https://[::1]/app", "https://[0:0::1]/app"),
-            ("https://[::1]x443/app",),
-            ("https://[::1%25eth0]/app",),
-            ("https://example.com/app", "https://@example.com/app"),
-            ("https://deploy.example:" + "1" * 5000 + "/x",),
-            ("host:app", "host:./app"),
-            ("host:../etc",),
-            ("C:\\srv\\app", "file:///C:/srv/app"),
-            ("file:///c|/srv/app",),
-            ("\\\\server\\share\\app", "file://server/share/app"),
-            ("file:///srv/app/..%2Fetc", "/srv/etc"),
-            ("file:///srv/a%5Cb",),
-            ("//server/share/app", "\\\\server\\share\\app"),
-            ("\\??\\C:\\app", "C:\\app"),
-        ):
-            with self.subTest(destinations=destinations):
-                self.assertEqual(self.destinations_gate(*destinations), "GATED")
-
-        for destination in (
-            "https://127.0.0.1/app",
-            "https://[2001:db8::1]:8443/x",
-            "https://xn--bcher-kva.example/app",
-            "https://user@deploy.example/x",
-            "host:srv/app",
-            "C:\\app\\console.log",
-            "C:\\app\\com0",
-        ):
-            with self.subTest(accepted=destination):
-                self.assertEqual(self.destinations_gate(destination), "READY")
+        evidence = self.evidence()
+        evidence["records"][2]["frozenBatch"]["deploymentTargets"].append(
+            {"destination": "https://deploy.example/api/", "mode": None}
+        )
+        evidence["records"][2]["frozenBatch"]["validators"].append({"path": "scripts/a b.py", "sha256": "2" * 64})
+        self.refingerprint(evidence)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = root / manifest["workflow"]["evidence_manifest"]
+            path.parent.mkdir(parents=True)
+            path.write_text(json.dumps(evidence), encoding="utf-8")
+            with patch.object(agent_task, "ROOT", root):
+                problems = agent_task.evidence_format_problems(manifest)
+                output = io.StringIO()
+                with redirect_stdout(output):
+                    agent_task.print_task("example", "J", manifest)
+        self.assertEqual(len(problems), 2)
+        self.assertIn("'https://deploy.example/api/'", problems[1])
+        self.assertIn("empty segment", problems[1])
+        self.assertIn("'scripts/a b.py'", problems[0])
+        self.assertIn("Live gate: GATED", output.getvalue())
+        self.assertIn("Format problem: frozenBatch.validators path 'scripts/a b.py'", output.getvalue())
 
     def test_many_protected_patterns_stay_fast(self) -> None:
         patterns = [f"service{index}/[a]/**/x" for index in range(1500)]
