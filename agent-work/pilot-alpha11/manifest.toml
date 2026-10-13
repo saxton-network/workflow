@@ -22,7 +22,7 @@ C = "conditional"
 P = "complete"
 R = "complete"
 J = "complete"
-K = "pending"
+K = "complete"
 
 [tasks.A]
 kind = "implementation"
