@@ -37,6 +37,7 @@ agent-work/
   RESULT-TEMPLATE.md
   EVIDENCE-MANIFEST.md
 docs/
+  ADOPTING.md
   AGENT-LIFECYCLE-AND-OBSERVABILITY.md
   agent-worktrees.md
   DESIGN.md
@@ -59,9 +60,11 @@ scripts/
 
 ## Quick start
 
-1. Copy or vendor the workflow control files into a repository.
+For a new repository, `docs/ADOPTING.md` says which files to copy, how to record their provenance, and gives a repository gate template.
+
+1. Copy the workflow control files listed in `docs/ADOPTING.md` into a repository, unchanged, and record their provenance.
 2. Define repository-specific safety rules and deployment authority in AGENTS.md.
-3. Create agent-work/<workflow-id>/PLAN.md, manifest.toml, task files, and results/.
+3. After a plan has been independently reviewed and approved, create agent-work/<workflow-id>/PLAN.md, manifest.toml, task files, and results/.
 4. Validate the manifest:
 
 ~~~bash
@@ -69,7 +72,7 @@ python3 scripts/agent-task.py <workflow-id> --all
 python3 scripts/agent-task.py <workflow-id> --ready
 ~~~
 
-5. Run the repository gate:
+5. Run the repository gate. In Workflow itself that is the command below; an adopting repository runs its own gate (`docs/ADOPTING.md` section 5), because `validate-repository.sh` tests Workflow's own suite and release rules.
 
 ~~~bash
 bash scripts/validate-repository.sh

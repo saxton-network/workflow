@@ -9,6 +9,7 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 import time
 import unittest
@@ -1465,6 +1466,120 @@ class WorkflowV3Tests(unittest.TestCase):
         self.assertEqual(result, "known_additive")
         # Rebuilding matchers per path took tens of seconds here; building them once takes well under one.
         self.assertLess(time.perf_counter() - started, 10)
+
+
+
+class OutputAndAdoptionTests(unittest.TestCase):
+    def test_closed_output_pipe_exits_without_traceback(self) -> None:
+        # `agent-task.py <id> --all | head -1` used to print a BrokenPipeError traceback.
+        workflow = next(path.parent.name for path in sorted((ROOT / "agent-work").glob("*/manifest.toml")))
+        process = subprocess.Popen([sys.executable, str(MODULE_PATH), workflow, "--all"], cwd=ROOT,
+                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        assert process.stdout is not None and process.stderr is not None
+        process.stdout.close()  # the reader goes away before the helper writes anything
+        stderr = process.stderr.read().decode()
+        process.stderr.close()
+        self.assertEqual(process.wait(timeout=60), 1)
+        self.assertNotIn("Traceback", stderr)
+        self.assertNotIn("BrokenPipeError", stderr)
+
+    def test_documented_first_parent_count_survives_pipefail(self) -> None:
+        doc = (ROOT / "agent-work" / "COORDINATOR.md").read_text(encoding="utf-8")
+        example = re.search(r'for example `(\[ "\$\(git rev-list --first-parent origin/main \| grep -cx "\$SHA"\)" = 1 \])`', doc)
+        self.assertIsNotNone(example, "COORDINATOR.md lost its first-parent count example")
+        with tempfile.TemporaryDirectory() as tmp:
+            env = {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
+            env.update(GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@example.invalid",
+                       GIT_COMMITTER_NAME="t", GIT_COMMITTER_EMAIL="t@example.invalid")
+            subprocess.run(["git", "init", "-q", tmp], check=True, env=env)
+            # A long first-parent line, so the writer is still writing when an early-exit reader stops.
+            stream = "".join(f"commit refs/remotes/origin/main\ncommitter t <t@example.invalid> {index} +0000\n"
+                             f"data {len(str(index))}\n{index}\n" for index in range(400))
+            subprocess.run(["git", "-C", tmp, "fast-import", "--quiet"], input=stream, text=True, check=True, env=env)
+            early = subprocess.run(["git", "-C", tmp, "rev-parse", "origin/main~2"], check=True, env=env,
+                                   capture_output=True, text=True).stdout.strip()
+            script = f'set -euo pipefail\nSHA={early}\nfor i in $(seq 1 50); do {example.group(1)} || exit 1; done\n'
+            result = subprocess.run(["bash", "-c", script], cwd=tmp, env=env, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+
+    def _adopter_repo(self, root: Path) -> Path:
+        doc = (ROOT / "docs" / "ADOPTING.md").read_text(encoding="utf-8")
+        block = re.search(r"<!-- adopter-gate:start -->\n~~~bash\n(.*?)~~~\n<!-- adopter-gate:end -->", doc, re.S)
+        self.assertIsNotNone(block, "docs/ADOPTING.md lost its adopter-gate template")
+        listed = re.findall(r"^\| `([^`]+)` \| ", doc.split("Do **not** copy these")[0], re.M)
+        vendored = re.findall(r'^    "([^"]+)",$', block.group(1), re.M)
+        self.assertEqual(sorted(listed), sorted(vendored), "the copy list and the gate's VENDORED list differ")
+        rows = []
+        for path in vendored:
+            target = root / path
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(ROOT / path, target)
+            rows.append(f"| `{path}` | `{'1' * 40}` | `{hashlib.sha256(target.read_bytes()).hexdigest()}` |")
+        (root / "ADOPTION.md").write_text("# Adoption\n\n| File | Commit | SHA-256 |\n| --- | --- | --- |\n"
+                                          + "\n".join(rows) + "\n", encoding="utf-8")
+        gate = root / "scripts" / "validate.sh"
+        gate.write_text(block.group(1), encoding="utf-8")
+        return gate
+
+    def _run_gate(self, gate: Path) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(["bash", str(gate)], capture_output=True, text=True, timeout=120)
+
+    def test_adopter_gate_template_passes_a_correct_adoption(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            gate = self._adopter_repo(root)
+            result = self._run_gate(gate)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("PASS: 8 vendored file hashes match ADOPTION.md", result.stdout)
+            self.assertIn("PASS: repository validation", result.stdout)
+            # A compiled workflow is run through the helper.
+            workflow = root / "agent-work" / "example-nondeployment"
+            workflow.mkdir()
+            shutil.copyfile(ROOT / "examples" / "nondeployment" / "manifest.toml", workflow / "manifest.toml")
+            result = self._run_gate(gate)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("PASS: agent-work/example-nondeployment/manifest.toml", result.stdout)
+
+    def test_adopter_gate_template_rejects_drift_and_bad_rows(self) -> None:
+        def mutate_file(root: Path) -> None:
+            path = root / "docs" / "THREAT-MODEL.md"
+            path.write_text(path.read_text(encoding="utf-8") + "\nlocal edit\n", encoding="utf-8")
+
+        def edit_adoption(change):
+            def apply(root: Path) -> None:
+                path = root / "ADOPTION.md"
+                path.write_text(change(path.read_text(encoding="utf-8")), encoding="utf-8")
+            return apply
+
+        def first_row(text: str) -> str:
+            return next(line for line in text.splitlines() if line.startswith("| `"))
+
+        def workflow_without_manifest(root: Path) -> None:
+            (root / "agent-work" / "half-compiled").mkdir()
+
+        def broken_manifest(root: Path) -> None:
+            (root / "agent-work" / "broken").mkdir()
+            (root / "agent-work" / "broken" / "manifest.toml").write_text("workflow_version = 3\n", encoding="utf-8")
+
+        cases = {
+            "drifted file": mutate_file,
+            "missing row": edit_adoption(lambda text: text.replace(first_row(text) + "\n", "")),
+            "duplicate row": edit_adoption(lambda text: text + first_row(text) + "\n"),
+            "upper-case hash": edit_adoption(lambda text: text.replace(first_row(text), re.sub(
+                r"`([0-9a-f]{64})`", lambda match: f"`{match.group(1).upper()}`", first_row(text)))),
+            "malformed row": edit_adoption(lambda text: text + "| `docs/extra.md` | `abc` | `def` |\n"),
+            "extra row": edit_adoption(lambda text: text + "| `docs/extra.md` | `" + "1" * 40 + "` | `" + "2" * 64 + "` |\n"),
+            "workflow without manifest": workflow_without_manifest,
+            "invalid manifest": broken_manifest,
+        }
+        for name, change in cases.items():
+            with self.subTest(name), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                gate = self._adopter_repo(root)
+                change(root)
+                result = self._run_gate(gate)
+                self.assertNotEqual(result.returncode, 0, f"{name}: {result.stdout}")
+                self.assertNotIn("PASS: repository validation", result.stdout)
 
 
 if __name__ == "__main__":

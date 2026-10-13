@@ -168,6 +168,25 @@ Findings, recorded for a later batch. Unless marked otherwise, each can be check
     All of these are now in the drill's contract and task files (`CONTRACT.md`, `J-live.md`, `V-rollback.md`); neither the helper nor the spec carries them. *Suggested action:* add them to the spec's live-task and rollback guidance, and consider recording on the live attempt whether a dispatch happened.
 12. **Helper output.** *Not in the site records.* `python3 scripts/agent-task.py <id> --all | head -1` prints a `BrokenPipeError` traceback; this reproduces on Workflow's own example workflows. *Suggested action:* handle `BrokenPipeError` in the helper's output path.
 
+
+Follow-up, in the next change after Pilot 5:
+
+- **Finding 1:** `docs/ADOPTING.md`.
+  - It lists the files to copy and the files not to copy.
+  - It covers provenance in `ADOPTION.md`, writing `AGENTS.md`, local threat models, the order adopt → plan → compile, repository creation by the owner, and Pages-style targets.
+  - It gives a repository gate template. The test suite runs the template against a correct adoption and against drift, missing, duplicate, malformed and extra rows, and workflow directories without a valid manifest.
+  - README's Quick start points to the guide; it no longer tells adopters to run Workflow's own gate, and compiles a workflow only after plan approval.
+- **Finding 2:** `agent-work/COORDINATOR.md` "Approval records" defines what an approval record states, and says a chat approval's record is the coordinator's own account. `agent-work/EVIDENCE-MANIFEST.md` points `approvalReference` at it.
+- **Findings 4 and 5:** `agent-work/COORDINATOR.md` "Review/repair loop" requires resetting the repair task to `pending` for each further round, and recording the reviewer's observed model in every round.
+- **Findings 9 and 10:** `agent-work/COORDINATOR.md` "Commands that move refs".
+  - Gates must exit before the action.
+  - A push names an asserted literal SHA.
+  - No `grep -q` at the end of a pipeline under `pipefail`. A test runs the documented `grep -c` form 50 times against a 400-commit history.
+  - Ancestry proofs need a non-shallow clone.
+- **Finding 12:** the helper exits quietly with status 1 when its reader closes the pipe early, and a test covers it.
+- **Findings 3 and 8** are covered in `docs/ADOPTING.md`.
+- **Still open:** findings 6, 7 and 11. Finding 11 is the helper and spec carrying the drill's dispatch and no-rollback rules.
+
 ## Current maturity
 
 The repository-only path has passed a controlled pilot. The deployment path has run four live workflows:

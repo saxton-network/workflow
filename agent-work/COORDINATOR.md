@@ -64,6 +64,15 @@ Before dispatch, verify that the branch does not contain unexpected divergent wo
 
 Do not force-push or discard unique commits.
 
+## Commands that move refs
+
+A push, merge or deploy dispatch runs only after every gate for it has passed, and the gate itself stops the command:
+
+- Write each gate as an explicit check that exits before the action, for example `if ! <check>; then exit 1; fi`. Never join a gate to its action with `;`, and never let an `<check> && echo OK` stand in for a gate: when the check fails, the echo is skipped but the next line still runs. `set -e` does not cover that case either, because it ignores a failure on the left of `&&` or `||`.
+- Push only a literal SHA that the script has asserted is non-empty and equal to the expected commit. An unset variable turns `git push origin "$SHA":refs/heads/main` into `git push origin :refs/heads/main`, which deletes the branch.
+- Under `pipefail`, do not end a pipeline with `grep -q`. It exits at the first match, the writer gets SIGPIPE, and the pipeline reports failure (exit 141) even when the match was found. Capture the output to a file first, or count with `grep -c`, which reads all of its input, for example `[ "$(git rev-list --first-parent origin/main | grep -cx "$SHA")" = 1 ]`. Output sent to `/dev/null` is not a fix: GNU grep may then stop at the first match too.
+- Prove ancestry in a clone with full history: `git rev-parse --is-shallow-repository` must print `false`. A shallow clone cannot see the history a first-parent or ancestry proof needs.
+
 ## Advancement loop
 
 Repeat until terminal completion or a stop condition:
@@ -116,6 +125,10 @@ If findings:
 3. verify repair completion;
 4. rerun the required review against the repaired commit;
 5. repeat until passed or a stop condition occurs.
+
+For a second or later repair round, set the review back to `findings` and the repair task back to `pending` in the same records commit that records the new findings. The helper lists only incomplete tasks, so a repair task left `complete` from the previous round is never offered again.
+
+Record each reviewer's model as observed in its own transcript or run metadata, not as requested. A reviewer resumed after a session restart may run on a different model, so check it again in every round. A review that turns out to be same-model as the builder is recorded as a deviation, not as independent.
 
 The coordinator may not self-declare a review pass.
 
@@ -205,6 +218,18 @@ When a ready task declares a live-change/human gate:
    same task only if approval still matches; otherwise return to readiness.
 
 One approval covers only the stated milestone.
+
+### Approval records
+
+The live-attempt record's `approvalReference` names an approval record, a file in the workflow's `results/`, written when the user answers. It states:
+
+- when the preview was shown, the question asked, and the user's answer as given;
+- the source SHA and the frozen batch fingerprint;
+- each approved live action, such as a dispatch or a rollback, with its frozen input file and that file's SHA-256;
+- any condition on an action, for example "rollback only if the new version may have gone live";
+- what the approval does not cover: a retry, another source or batch, or a settings change.
+
+When the approval was given in chat, the record is the coordinator's own account of it; say so in the record. Where the platform offers a link or identifier for the user's message, include it. A record that does not match the preview, or names a different source, fingerprint or input, is no approval.
 
 Repository-only child-task dispatch and ordinary integration do not need repeated approvals when already authorized by the approved workflow.
 
