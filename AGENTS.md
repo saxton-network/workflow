@@ -39,6 +39,8 @@ Never commit or place in evidence credentials, bearer tokens, private keys, runt
 - Builders and independent reviewers remain separate roles.
 - Findings go to a separate repair role and back to the same reviewer.
 - Do not silently weaken a frozen contract or safety boundary.
+- Reviewers classify each finding against docs/THREAT-MODEL.md. Out-of-scope findings are recorded, not fixed, unless the owner changes that document.
+- The repository owner approves scope, releases, and live changes. Code review is done by agents independent of the builder, preferably a different model or vendor; the owner is not asked to review code.
 
 ## Deployment authority
 

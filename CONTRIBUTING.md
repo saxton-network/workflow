@@ -10,4 +10,6 @@ For substantial changes:
 4. Prefer fail-closed behavior when evidence is missing or ambiguous.
 5. Do not weaken a gate merely to make an example or pilot pass.
 
+docs/THREAT-MODEL.md decides which findings are in scope. A change that widens or narrows that scope needs the repository owner's approval.
+
 Bug reports are especially useful when they include a minimal manifest or evidence fixture showing an unsafe state the helper accepts, or a safe state it incorrectly rejects.
