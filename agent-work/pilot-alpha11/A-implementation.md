@@ -22,6 +22,10 @@
 
 `results/A.md` using `agent-work/RESULT-TEMPLATE.md`: candidate commit, base, changed paths, checks.
 
+## Records
+
+Hand the result content to the coordinator. Only the coordinator commits to `pilot/alpha11-records`, and nothing under `agent-work/pilot-alpha11/` is ever committed to the implementation or fix branch.
+
 ## Forbidden
 
 Changes outside the owned paths; any change to fingerprint computation, the threat model, the spec, or the release workflow.

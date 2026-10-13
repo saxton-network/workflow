@@ -1,3 +1,3 @@
 # Results: pilot-alpha11
 
-One file per task attempt (`A.md`, `B-1.md`, `C-1.md`, ...), using `agent-work/RESULT-TEMPLATE.md`. Supporting files frozen by readiness (`R-dispatch-inputs.json`, `R-expected-checksum.txt`) and logs live here too. Failed attempts are kept. The coordinator indexes these in `../evidence.json`; task agents do not edit that file.
+One file per task attempt (`A.md`, `B-1.md`, `C-1.md`, ...), using `agent-work/RESULT-TEMPLATE.md`. Supporting files frozen by readiness (`R-dispatch-inputs.json`, `R-expected-checksum.txt`) and logs live here too. Failed attempts are kept. Only the coordinator commits here, on `pilot/alpha11-records`; task agents hand it their result content. Nothing under `agent-work/pilot-alpha11/` is committed to the implementation or fix branch, so records never become part of the released source. The coordinator indexes these files in `../evidence.json`; task agents do not edit that file.

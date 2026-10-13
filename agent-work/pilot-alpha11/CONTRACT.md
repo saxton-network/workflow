@@ -17,7 +17,7 @@ One dispatch of `.github/workflows/release.yml` on `main` with `version=v0.1.0-a
 Readiness cannot freeze these. Each is accepted with a bounded consequence:
 
 1. **Runner tools.** `ubuntu-latest`'s git and zlib build the published ZIP. Readiness freezes the locally built hash; comparing it with the published ZIP is a live-only check. A published ZIP whose hash differs from the frozen hash fails runtime acceptance, even if its extracted files match.
-2. **Release notes.** The text from `--generate-notes` is written by GitHub and is not frozen. It may be only a "Full Changelog" link.
+2. **Release notes.** The text from `--generate-notes` is written by GitHub and is not frozen. Readiness previews it read-only if the API allows. It may be only a "Full Changelog" link.
 3. **Action versions.** `actions/checkout@v7.0.1` and `actions/setup-python@v6.0.0` are pinned by tag, not by commit. Their effect on the artifact is covered by the ZIP hash check.
 
 ## Rollback

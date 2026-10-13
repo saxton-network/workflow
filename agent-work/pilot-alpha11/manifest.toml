@@ -35,7 +35,7 @@ depends_on = []
 kind = "independent_review"
 name = "Review the exact candidate against the threat model"
 file = "agent-work/pilot-alpha11/B-review.md"
-branch = "pilot/alpha11-impl"
+branch = "pilot/alpha11-records"
 depends_on = ["A"]
 required_status = { A = "complete" }
 rerun_after = "C"
@@ -69,7 +69,7 @@ required_status = { B = "passed" }
 kind = "live_deployment"
 name = "Publish v0.1.0-alpha.11 after owner approval and accept it at runtime"
 file = "agent-work/pilot-alpha11/J-live.md"
-branch = "main"
+branch = "pilot/alpha11-records"
 depends_on = ["R"]
 human_gate = "live-change-approval"
 
