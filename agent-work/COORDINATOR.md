@@ -159,7 +159,7 @@ defines its deployment authority under `AGENTS.md`.
    validators, rollback identity, destinations, modes, and fingerprint. A
    relevant change invalidates readiness and approval: rerun readiness, show a
    revised preview, and obtain a new explicit `y/n`.
-6. Execute the proven batch. On the first failed required runtime check, stop,
+6. Execute the proven batch. Record any stop after dispatch, including a cancel or an interrupted run, as `failed` with `runtimeAcceptance: "FAIL"`, never as `blocked` or `pending`. On the first failed required runtime check, stop,
    restore the known-good state within the approved rollback boundary, and
    verify restoration. Preserve the failed attempt. Do not invent a new
    required validator during production mutation.

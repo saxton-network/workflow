@@ -637,7 +637,7 @@ def live_gate_state(data: dict, evidence_path: Path | None = None, *, allow_comp
         return "GATED"
     live_attempts = [item for item in records[readiness_index + 1:] if isinstance(item, dict)
                      and item.get("taskId") == live_id]
-    if any(_attempt_unsuccessful(item) for item in live_attempts):
+    if _attempts_unsuccessful(live_attempts):
         # A failed attempt may have left public state behind; another attempt needs fresh readiness.
         return "GATED"
     if not live_attempts:
@@ -748,11 +748,23 @@ def task_ready(task_id: str, data: dict, evidence_path: Path | None = None) -> b
 LIVE_ATTEMPT_OK_STATUSES = {None, "pending", "blocked", "in_progress", "complete", "passed"}
 
 
-def _attempt_unsuccessful(record: dict) -> bool:
-    """True when a live record reports failed acceptance or any status other than a known non-failure."""
-    status = record.get("taskStatus")
-    return (record.get("runtimeAcceptance") == "FAIL" or
-            not (status is None or isinstance(status, str)) or status not in LIVE_ATTEMPT_OK_STATUSES)
+LIVE_ATTEMPT_NOT_STARTED = {None, "pending", "blocked"}
+
+
+def _attempts_unsuccessful(attempts: list[dict]) -> bool:
+    """True when any live record reports a non-PASS acceptance or an unknown status, or an attempt
+    that reached in_progress later falls back to a not-started status (it stopped mid-run)."""
+    started = False
+    for record in attempts:
+        status = record.get("taskStatus")
+        if record.get("runtimeAcceptance") not in (None, "PASS"):
+            return True
+        if not (status is None or isinstance(status, str)) or status not in LIVE_ATTEMPT_OK_STATUSES:
+            return True
+        if started and status in LIVE_ATTEMPT_NOT_STARTED:
+            return True
+        started = started or status == "in_progress"
+    return False
 
 
 def _live_attempts_since_readiness(data: dict, evidence_path: Path | None = None) -> list[dict]:
@@ -857,7 +869,7 @@ def print_task(phase: str, task_id: str, data: dict) -> None:
             print("Do not dispatch this live task; its required evidence or dependency gate is closed.")
             if status in DEFAULT_DEPENDENCY_SUCCESS_STATUSES:
                 print(f"Its status is {status}, but no runtime acceptance PASS is recorded for the readied source and fingerprint.")
-            elif any(_attempt_unsuccessful(item) for item in _live_attempts_since_readiness(data)):
+            elif _attempts_unsuccessful(_live_attempts_since_readiness(data)):
                 print("The latest live attempt failed; another attempt needs fresh readiness and a new approval.")
             for problem in evidence_format_problems(data):
                 print(f"Format problem: {problem}")

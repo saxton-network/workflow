@@ -446,6 +446,29 @@ class WorkflowV3Tests(unittest.TestCase):
                         self.assertEqual(agent_task.live_task_label("J", manifest), "GATED", (outcome, later))
                 manifest["status"]["J"] = "in_progress"
 
+    def test_mid_run_stop_or_odd_acceptance_closes_the_gate(self) -> None:
+        manifest = self.deploy_manifest()
+        manifest["status"]["J"] = "in_progress"
+        outcomes = (
+            # An attempt that reached in_progress and then went back to a not-started status stopped mid-run.
+            {"taskStatus": "blocked"}, {"taskStatus": "pending"}, {"taskStatus": None},
+            # Any acceptance value other than PASS (or none yet) is not a pass.
+            {"taskStatus": "in_progress", "runtimeAcceptance": ["FAIL"]},
+            {"taskStatus": "in_progress", "runtimeAcceptance": "fail"},
+            {"taskStatus": "in_progress", "runtimeAcceptance": "UNKNOWN"},
+            {"taskStatus": "in_progress", "runtimeAcceptance": False},
+        )
+        for outcome in outcomes:
+            evidence = self.evidence()
+            evidence["records"][3]["taskStatus"] = "in_progress"
+            evidence["records"].append({**copy.deepcopy(evidence["records"][3]), **outcome})
+            self.assertEqual(self.gate(manifest, evidence), "GATED", outcome)
+        # The approval record itself may still be written while the manifest says blocked.
+        self.assertEqual(self.gate(manifest, self.evidence()), "READY")
+        evidence = self.evidence()
+        evidence["records"].append({**copy.deepcopy(evidence["records"][3]), "taskStatus": "in_progress"})
+        self.assertEqual(self.gate(manifest, evidence), "READY")
+
     def test_ready_gate_with_unmet_dependencies_is_gated(self) -> None:
         manifest = self.deploy_manifest()
         manifest["tasks"]["J"]["required_status"] = {"R": "passed"}
