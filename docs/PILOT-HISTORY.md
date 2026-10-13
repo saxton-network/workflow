@@ -190,7 +190,7 @@ Follow-up, in the next change after Pilot 5:
 The change after that closes Pilot 5's remaining findings:
 
 - **Finding 6:** `docs/THREAT-MODEL.md` "How reviews use this" gains a guard-validator rule. A finding that needs deliberately crafted content to slip past a project's content guard is out of scope and recorded in the PR description. A guard that misses an ordinary way of writing the forbidden content, including copy-paste artifacts, is fixed. The rule does not cover the helper's evidence parsing. This is an owner scope decision; the owner's go-ahead to merge that change is the approval.
-- **Finding 7:** `agent-work/WORKFLOW-SPEC.md` says the approved plan governs. A task file may make a check stricter, or swap in an equal or stronger proof, recorded as a dated plan clarification and checked by the scaffold reviewer. Weakening a check, widening scope or changing a live batch needs a revised plan and fresh approval.
+- **Finding 7:** `agent-work/WORKFLOW-SPEC.md` says the approved plan governs. A task file may make a check stricter, or swap in an equal or stronger proof, recorded as a dated plan clarification, checked by the next independent review and listed in the next owner preview. Weakening a check, widening scope or changing a live batch needs a revised plan and fresh approval.
 - **Finding 11:** `agent-work/WORKFLOW-SPEC.md` "Failed live attempts and drills" covers the drill's contract rules:
   - a failed pre-dispatch recheck dispatches nothing and leaves the live task `in_progress`;
   - a dispatch that errors, or whose run never appears, is never repeated;
