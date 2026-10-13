@@ -42,6 +42,7 @@ docs/
   DESIGN.md
   PILOT-HISTORY.md
   RELEASING.md
+  THREAT-MODEL.md
 examples/
   README.md
   nondeployment/manifest.toml
@@ -125,6 +126,8 @@ Public releases are intentionally dispatched by a human from `main`. The release
 The design grew out of real multi-agent repository and deployment work where implementation defects were not the dominant source of failure. Stale assumptions, validator mistakes, source-identity ambiguity, Git divergence, and deployment-procedure drift were. Workflow v3 moves those failure modes into explicit gates and evidence.
 
 See docs/PILOT-HISTORY.md for sanitized examples of defects found by the workflow's own pilots.
+
+docs/THREAT-MODEL.md states what the gates defend against (honest but fallible agents and accidental configuration) and what they do not (deliberate tampering, malicious agents, outside compromise).
 
 ## License
 
