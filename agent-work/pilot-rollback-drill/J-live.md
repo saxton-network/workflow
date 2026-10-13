@@ -3,7 +3,15 @@
 - **Prerequisites:**
   - R `complete` with `PASS`;
   - the owner's explicit "y" to the concrete preview, which confirms they are available to delete within 30 minutes.
-- The coordinator records the approval record (`in_progress`) and confirms the helper shows `READY`, which is a handoff only.
+- **Read first:** `AGENTS.md`, `PLAN.md` "Live preview", `CONTRACT.md`.
+- **The preview states:**
+  - the source and fingerprint;
+  - the declared deviation and the expected-failure signature;
+  - the commands, effects and exposure, including that the drill stays public until the owner deletes it;
+  - the stop conditions, the rollback and the retry boundary;
+  - the question "Approve, and I am available now to delete within 30 minutes? (y/n)".
+- **No-go:** if the owner does not answer y with availability, do not dispatch; J stays `pending`.
+- **Approval record:** the coordinator writes the approval to `results/J-approval.md`, records it (`in_progress`), and confirms the helper shows `READY`, which is a handoff only.
 
 ## Work
 

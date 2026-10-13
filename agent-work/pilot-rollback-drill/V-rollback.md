@@ -1,6 +1,7 @@
 # Task V: rollback and verification
 
 - **Prerequisites:** J `failed`.
+- **Read first:** `AGENTS.md`, `PLAN.md` "Rollback" and "V: rollback verification", `CONTRACT.md`.
 
 ## Work
 
@@ -15,7 +16,11 @@
    - `main` is unchanged, and immutable releases are still off.
 4. Switch off the check-ins.
 5. Write the drill verdict.
-6. Open the records PR (this directory plus a `docs/PILOT-HISTORY.md` entry), with a secrets check and divergence proof. Get an independent review, merge on the owner's go-ahead, and recheck `main`.
+6. Records divergence. Prove the records descend from the source, list their changed paths with the documented commands (no inherited `GIT_*` variables), and run `classify_divergence` with the frozen batch's paths. Expect `protected_change` only for frozen files under `agent-work/pilot-rollback-drill/`. The spec treats that as expected only after runtime acceptance passed, which is not true here; record this as a pilot finding.
+7. Open the records PR (this directory plus a `docs/PILOT-HISTORY.md` entry), with a secrets check and the divergence proof. Get an independent review, and merge on the owner's go-ahead.
+8. Record V `complete` before the merge, because records cannot prove their own merge. Report the merge commit and a fresh `main` check afterwards, outside the records. Do not call the workflow reconciled until that check passes.
+
+If any verification fails, record V `failed`, stop and report; K stays blocked.
 
 ## Result
 

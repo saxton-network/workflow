@@ -10,7 +10,9 @@
 2. List the commits since `v0.1.0-alpha.12` (`c7ad3c3`). Each must come from an independently reviewed, merged PR (expected: PR #15 only, test-only).
 3. Confirm that Validate CI is green on the candidate.
 
-No code changes.
+No code changes. If `origin/main` is no longer `92c51e6`, list every commit since alpha.12 anyway, so B can review the whole list.
+
+The coordinator's evidence record for A carries `candidateSha` equal to the candidate and `taskStatus: "complete"`; without it the live gate stays `GATED`.
 
 ## Result
 

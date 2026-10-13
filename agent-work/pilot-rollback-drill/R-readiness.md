@@ -1,6 +1,7 @@
 # Task R: release readiness
 
 - **Prerequisites:** B `passed`.
+- **Read first:** `AGENTS.md`, `PLAN.md`, `CONTRACT.md`.
 - **Read-only** with respect to `main`, tags and releases.
 
 ## Checks
@@ -18,7 +19,27 @@
 
 ## Frozen batch
 
-As `PLAN.md` lists it. Only data files live under `agent-work/pilot-rollback-drill/`; validators come from the source.
+- `deploymentSourceSha`: the source.
+- `deployableArtifactSha256`: the local ZIP hash.
+- `deploymentConfiguration`:
+  - `.github/workflows/release.yml`
+  - `agent-work/pilot-rollback-drill/results/R-dispatch-inputs.json`
+  - `agent-work/pilot-rollback-drill/results/R-expected-checksum.txt`
+  - `agent-work/pilot-rollback-drill/results/R-expected-checksum-INJECTED.txt`
+  - `agent-work/pilot-rollback-drill/results/R-settings.json`
+- `validators` (hashed at the source):
+  - `scripts/validate-repository.sh`
+  - `scripts/check-release-version.sh`
+  - `scripts/agent-task.py`
+  - `scripts/tests/test_agent_workflow.py`
+- `installedScripts`: none.
+- `rollbackArtifact`: identity `github-release-v0.1.0-alpha.12`, provenance `agent-work/pilot-rollback-drill/results/R-rollback-alpha12.md`, which holds the release ID, tag SHA `c7ad3c3b1ae3e0a07d7af0322f0688e7d4533c9f` and asset digests.
+- `deploymentTargets`, each with `mode: null`:
+  - `https://github.com/saxton-network/workflow/releases/tag/v0.0.0-drill.1`
+  - `https://github.com/saxton-network/workflow/releases/download/v0.0.0-drill.1/workflow-v0.0.0-drill.1.zip`
+  - `https://github.com/saxton-network/workflow/releases/download/v0.0.0-drill.1/workflow-v0.0.0-drill.1.zip.sha256`
+
+Only data files live under `agent-work/pilot-rollback-drill/`; validators come from the source.
 
 ## Result
 

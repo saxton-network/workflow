@@ -15,6 +15,10 @@
    - V's verification proves the exact baseline.
 3. Classify each finding against the threat model, with a severity.
 
+## Evidence
+
+A `passed` record carries `deploymentSourceSha` equal to A's `candidateSha`; without it the live gate stays `GATED`.
+
 ## Result
 
 `results/B-1.md` (`B-2.md` after a repair): verdict `passed` or `findings`, the findings, and the checks run.

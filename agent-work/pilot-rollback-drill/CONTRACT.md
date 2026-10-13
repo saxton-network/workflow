@@ -14,7 +14,7 @@ One dispatch of `.github/workflows/release.yml` on `main` with `version=v0.0.0-d
 
 ## Declared deviation: the injected fault
 
-The spec says readiness freezes a proven batch. This drill deliberately freezes one expectation that is known to be wrong, as a live-only assertion whose expected outcome is `FAIL`. This extends the spec's clause that live-only assertions must be identified explicitly; it is declared here, in the plan, and in the live preview, and the owner approved it (plan decision 6).
+The spec says readiness freezes a proven batch. This drill deliberately freezes one expectation that is known to be wrong, as a live-only assertion whose expected outcome is `FAIL`. This extends the spec's clause that live-only assertions must be identified explicitly; it is declared here, in the plan, and in the live preview, and the owner approved it (plan decision 6). Readiness `PASS` means every other check passed and the injected file differs from the correct one exactly as declared. It does not mean the batch is free of known failures.
 
 - `results/R-expected-checksum.txt` holds the correct bytes of the `.sha256` asset: `<sha256>  workflow-v0.0.0-drill.1.zip` and a newline.
 - `results/R-expected-checksum-INJECTED.txt` is identical except that bytes 0–63, the hash, are 64 `0` characters.
