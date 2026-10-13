@@ -129,6 +129,7 @@ What happened:
   - Under one approval covering both dispatches, v2 was deployed. Check 2a proved the v2 bytes were live, and the injected check 2b failed exactly as declared.
   - The coordinator then redeployed v1 with one dispatch of the same deploy code. The live bytes equalled v1 on the first fetch.
   - **Drill verdict: PASS.** End state "stopped after verified rollback": `main` holds v2 while the site serves v1.
+- Both workflows' records were reviewed independently and landed on the site's `main` with the owner's go-ahead (site PRs #2 and #3). Each landing was a local `--no-ff` merge pushed as a fast-forward, and each touched only its workflow directory.
 - The scaffold review of the drill caught that a failed J with no v2 deploy would still make V ready, which would trigger a needless live dispatch. The contract was fixed before anything was frozen.
 
 Findings, recorded for a later batch:
