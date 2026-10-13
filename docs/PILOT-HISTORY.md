@@ -53,12 +53,12 @@ Findings, recorded for a later batch and not patched during the run:
 6. Frozen batch paths mix two trees: the release source and the records branch. The spec does not say which tree a path refers to.
 7. Repository settings (immutable releases) were checked as live facts; the frozen batch has no place for settings that are not files.
 8. No test ties the documented default-port list or bracket rule to the code, and the builder's result overstated what its tests covered.
-9. The terminal records cannot contain proof of their own merge; that last check is reported outside them.
+9. The terminal records cannot contain proof of their own merge, so task K is recorded `complete` before its step 4 (review, merge, `main` recheck); that step is reported outside them.
 10. Only one model was available, so the reviewer was a separate agent on the same model, not a different vendor.
 
 ## Current maturity
 
-The repository-only path has passed a controlled pilot. The deployment path has passed one live pilot (Pilot 3), a low-risk prerelease of this repository.
+The repository-only path has passed a controlled pilot. The deployment path has passed one live pilot (Pilot 3), a low-risk prerelease of this repository, on its success path only; run cancellation, rollback, the retry boundary and frozen-batch invalidation were not exercised live.
 
 The framework should still be treated as experimental: one live run is not broad coverage, and Pilot 3's findings are open.
 

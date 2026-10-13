@@ -358,11 +358,11 @@
       "evidence": [
         {
           "path": "agent-work/pilot-alpha11/results/K.md",
-          "sha256": "b308eedb9b5d20bd6e7efa3b8bdce896e07bfb5e0377923b0296cf56a071db67"
+          "sha256": "9d0258b6b995b95b4a35dc2c8e977afce5fd10d2d11c34a1d3c4206219a1a533"
         },
         {
           "path": "docs/PILOT-HISTORY.md",
-          "sha256": "ee0cd656a3fa387fa1da674bff13741a28b7e7860e16ab1ae9fcce789d7af320"
+          "sha256": "8c43c66627dbdbc98db48564c40c282b5b94894bfab5db819c9030fa0de6b587"
         }
       ],
       "helper": {

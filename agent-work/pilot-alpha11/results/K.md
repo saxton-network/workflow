@@ -24,7 +24,7 @@ Run with no inherited `GIT_*` variables, against the records head before this fi
 
 ## Records PR
 
-The records PR from `pilot/alpha11-records` to `main` is reviewed independently, then merged by the coordinator on the owner's go-ahead, after which `main` is rechecked. The merge and that recheck come after this file, so they are reported in the coordinator session and visible in the merge commit (pilot finding 9 in `docs/PILOT-HISTORY.md`).
+The records PR from `pilot/alpha11-records` to `main` is reviewed independently, then merged by the coordinator on the owner's go-ahead, after which `main` is rechecked. The merge and that recheck come after this file, so they are reported in the coordinator session and visible in the merge commit (pilot finding 9 in `docs/PILOT-HISTORY.md`). Record K's `complete` status covers work steps 1–3 only.
 
 ## Pilot findings
 
