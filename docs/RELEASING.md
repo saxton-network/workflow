@@ -23,6 +23,23 @@ The workflow creates the release tag itself at the exact workflow commit, using 
 
 If a run fails after creating the tag but before publishing, the tag remains and a rerun is refused. Inspect the tag, delete it deliberately if it points at the intended commit and has no release, and dispatch again.
 
+## Rolling back a release
+
+The release workflow cannot delete anything. A rollback is done by someone with write access on the GitHub website, one item at a time:
+
+1. Delete the release.
+2. Then delete its tag on the Tags page.
+
+Order and verification matter:
+
+- **Release only.** Deleting a release leaves its tag, and the tag's source archives stay downloadable.
+- **Tag first.** Deleting a tag first turns its release into a draft, which no longer lives at `/releases/tag/<tag>`. Delete the draft through its own link.
+- **Use the API to check.** While a tag exists, `/releases/tag/<tag>` still serves a plain tag page after its release is deleted. Verify each deletion through the API: the release by tag returns 404, the authenticated release list shows no release or draft with that tag, and `git ls-remote` shows no tag. Do not rely on the web page.
+- **Draft visibility.** Draft releases are visible only to accounts with write access. Record which identity read the release list.
+- **Final check.** Compare the full tag and release lists with a snapshot taken before publishing.
+
+`agent-work/pilot-rollback-drill/` is a worked example.
+
 ## What the workflow does not prove
 
 A successful release workflow proves the public repository package passed its repository validation at that commit. It does not prove that an adopting project's live deployment is safe, approved, or healthy. Those remain Workflow's project-level readiness and runtime gates.

@@ -394,6 +394,30 @@ class WorkflowV3Tests(unittest.TestCase):
         manifest["status"]["J"] = "pending"
         self.assertEqual(self.live_view(manifest, evidence)[0], "PREVIEW")
 
+    def test_failed_attempt_closes_the_gate_until_fresh_readiness(self) -> None:
+        manifest = self.deploy_manifest()
+        manifest["status"]["J"] = "failed"
+        evidence = self.evidence()
+        evidence["records"][3].update(taskStatus="failed", runtimeAcceptance="FAIL")
+        self.assertEqual(self.gate(manifest, evidence), "GATED")
+        label, view, ready = self.live_view(manifest, evidence)
+        self.assertEqual(label, "GATED")
+        self.assertIn("latest live attempt failed", view)
+        self.assertNotIn("J  ", ready)
+        # A new approval for the same readiness does not reopen the gate.
+        evidence["records"].append(copy.deepcopy(evidence["records"][3]))
+        evidence["records"][-1].update(taskStatus="in_progress", runtimeAcceptance=None, approvalReference="approval-2")
+        manifest["status"]["J"] = "in_progress"
+        self.assertEqual(self.gate(manifest, evidence), "GATED")
+        # Fresh readiness after the failure starts a new cycle: preview first, then a new approval.
+        evidence["records"] = evidence["records"][:4] + [copy.deepcopy(evidence["records"][2])]
+        manifest["status"]["J"] = "pending"
+        self.assertEqual(self.gate(manifest, evidence), "PREVIEW")
+        evidence["records"].append({"taskId": "J", "taskStatus": "in_progress", "approvalReference": "approval-2",
+                                    "deploymentSourceSha": self.SOURCE,
+                                    "frozenBatchFingerprint": evidence["records"][2]["frozenBatchFingerprint"]})
+        self.assertEqual(self.gate(manifest, evidence), "READY")
+
     def test_ready_gate_with_unmet_dependencies_is_gated(self) -> None:
         manifest = self.deploy_manifest()
         manifest["tasks"]["J"]["required_status"] = {"R": "passed"}
