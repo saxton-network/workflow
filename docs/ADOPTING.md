@@ -25,9 +25,10 @@ Do **not** copy these. They serve Workflow's own development and releases:
 - `.github/workflows/release.yml`;
 - `docs/PILOT-HISTORY.md`;
 - `docs/RELEASING.md`;
-- the `agent-work/pilot-*` directories.
+- the `agent-work/pilot-*` directories;
+- Workflow's own `README.md`, `CONTRIBUTING.md`, `.gitignore` and `.github/workflows/validate.yml`. Write your own; section 5 has a gate template.
 
-`examples/` is optional reading. Some copied files mention these documents; those references point back to Workflow, not to your repository.
+Background reading, not copied: `docs/DESIGN.md`, `docs/AGENT-LIFECYCLE-AND-OBSERVABILITY.md` and `examples/`. Some copied files mention documents that are not copied; those references point back to Workflow, not to your repository. Where a copied file shows `scripts/validate-repository.sh` as an example check (for example `RESULT-TEMPLATE.md`), substitute your own gate.
 
 ## 2. Record provenance
 
@@ -37,7 +38,7 @@ Add an `ADOPTION.md` with one table row per copied file:
 | `agent-work/README.md` | `<40-hex Workflow commit>` | `<64-hex SHA-256>` |
 ~~~
 
-Your gate (section 5) fails when a copied file drifts from its row. To upgrade, copy the files from a newer commit, update every row, and review the change like any other.
+Write each row in exactly this form, with a lower-case SHA-256. Any line that carries a backticked 64-character hex value is read as a hash row, so other tables (for example a "not copied" list) must not contain one. Your gate (section 5) fails when a copied file drifts from its row. To upgrade, copy the files from a newer commit, update every row, and review the change like any other.
 
 ## 3. Write `AGENTS.md`
 
@@ -87,9 +88,10 @@ VENDORED = [
     "docs/agent-worktrees.md",
 ]
 ROW = re.compile(r"\| `([^`]+)` \| `([0-9a-f]{40})` \| `([0-9a-f]{64})` \|")
+DIGEST = re.compile(r"`[0-9A-Fa-f]{64}`")
 rows = {}
 for line in Path("ADOPTION.md").read_text(encoding="utf-8").splitlines():
-    if not line.startswith("| `"):
+    if not DIGEST.search(line):
         continue
     match = ROW.fullmatch(line.rstrip())
     if match is None:
@@ -102,7 +104,7 @@ if sorted(rows) != sorted(VENDORED):
     sys.exit(f"FAIL: ADOPTION.md rows {sorted(rows)} do not match the vendored list")
 for path, digest in rows.items():
     file = Path(path)
-    if not file.is_file() or hashlib.sha256(file.read_bytes()).hexdigest() != digest:
+    if file.is_symlink() or not file.is_file() or hashlib.sha256(file.read_bytes()).hexdigest() != digest:
         sys.exit(f"FAIL: {path} differs from its ADOPTION.md hash")
 print(f"PASS: {len(rows)} vendored file hashes match ADOPTION.md")
 PY

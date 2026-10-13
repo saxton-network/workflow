@@ -941,7 +941,8 @@ def main() -> int:
 if __name__ == "__main__":
     try:
         status = main()
-        sys.stdout.flush()
+        if sys.stdout is not None:
+            sys.stdout.flush()
     except BrokenPipeError:
         # The reader closed the pipe early (for example `| head`): exit quietly, without a traceback.
         os.dup2(os.open(os.devnull, os.O_WRONLY), sys.stdout.fileno())

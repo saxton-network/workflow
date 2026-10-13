@@ -1483,6 +1483,13 @@ class OutputAndAdoptionTests(unittest.TestCase):
         self.assertNotIn("Traceback", stderr)
         self.assertNotIn("BrokenPipeError", stderr)
 
+    def test_closed_stdout_still_exits_cleanly(self) -> None:
+        workflow = next(path.parent.name for path in sorted((ROOT / "agent-work").glob("*/manifest.toml")))
+        result = subprocess.run(["bash", "-c", f'"{sys.executable}" "{MODULE_PATH}" {workflow} --all 1>&-'],
+                                cwd=ROOT, capture_output=True, text=True, timeout=60)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn("Traceback", result.stderr)
+
     def test_documented_first_parent_count_survives_pipefail(self) -> None:
         doc = (ROOT / "agent-work" / "COORDINATOR.md").read_text(encoding="utf-8")
         example = re.search(r'for example `(\[ "\$\(git rev-list --first-parent origin/main \| grep -cx "\$SHA"\)" = 1 \])`', doc)
@@ -1498,9 +1505,13 @@ class OutputAndAdoptionTests(unittest.TestCase):
             subprocess.run(["git", "-C", tmp, "fast-import", "--quiet"], input=stream, text=True, check=True, env=env)
             early = subprocess.run(["git", "-C", tmp, "rev-parse", "origin/main~2"], check=True, env=env,
                                    capture_output=True, text=True).stdout.strip()
-            script = f'set -euo pipefail\nSHA={early}\nfor i in $(seq 1 50); do {example.group(1)} || exit 1; done\n'
-            result = subprocess.run(["bash", "-c", script], cwd=tmp, env=env, capture_output=True, text=True)
-            self.assertEqual(result.returncode, 0, result.stderr)
+            def run(check: str) -> int:
+                script = f'set -euo pipefail\nSHA={early}\nfor i in $(seq 1 50); do {check} || exit 1; done\n'
+                return subprocess.run(["bash", "-c", script], cwd=tmp, env=env, capture_output=True).returncode
+
+            self.assertEqual(run(example.group(1)), 0)
+            # Control: the same history makes the `grep -q` form fail, so the setup really exercises SIGPIPE.
+            self.assertNotEqual(run('git rev-list --first-parent origin/main | grep -qx "$SHA"'), 0)
 
     def _adopter_repo(self, root: Path) -> Path:
         doc = (ROOT / "docs" / "ADOPTING.md").read_text(encoding="utf-8")
@@ -1539,6 +1550,13 @@ class OutputAndAdoptionTests(unittest.TestCase):
             result = self._run_gate(gate)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIn("PASS: agent-work/example-nondeployment/manifest.toml", result.stdout)
+            # Other tables without a hash value are not read as hash rows.
+            adoption = root / "ADOPTION.md"
+            adoption.write_text(adoption.read_text(encoding="utf-8")
+                                + "\n| Not copied | Why |\n| --- | --- |\n| `docs/RELEASING.md` | Workflow's own releases |\n",
+                                encoding="utf-8")
+            result = self._run_gate(gate)
+            self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_adopter_gate_template_rejects_drift_and_bad_rows(self) -> None:
         def mutate_file(root: Path) -> None:
@@ -1561,13 +1579,21 @@ class OutputAndAdoptionTests(unittest.TestCase):
             (root / "agent-work" / "broken").mkdir()
             (root / "agent-work" / "broken" / "manifest.toml").write_text("workflow_version = 3\n", encoding="utf-8")
 
+        def symlinked_file(root: Path) -> None:
+            path = root / "docs" / "agent-worktrees.md"
+            real = root / "elsewhere.md"
+            path.rename(real)
+            path.symlink_to(real)
+
         cases = {
             "drifted file": mutate_file,
+            "symlinked file": symlinked_file,
             "missing row": edit_adoption(lambda text: text.replace(first_row(text) + "\n", "")),
             "duplicate row": edit_adoption(lambda text: text + first_row(text) + "\n"),
             "upper-case hash": edit_adoption(lambda text: text.replace(first_row(text), re.sub(
                 r"`([0-9a-f]{64})`", lambda match: f"`{match.group(1).upper()}`", first_row(text)))),
-            "malformed row": edit_adoption(lambda text: text + "| `docs/extra.md` | `abc` | `def` |\n"),
+            "malformed row": edit_adoption(lambda text: text + "| `docs/extra.md` | `abc` | `" + "2" * 64 + "` |\n"),
+            "four-column row": edit_adoption(lambda text: text.replace(first_row(text), "| `x` " + first_row(text))),
             "extra row": edit_adoption(lambda text: text + "| `docs/extra.md` | `" + "1" * 40 + "` | `" + "2" * 64 + "` |\n"),
             "workflow without manifest": workflow_without_manifest,
             "invalid manifest": broken_manifest,

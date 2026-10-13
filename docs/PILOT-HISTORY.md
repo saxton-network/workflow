@@ -185,7 +185,7 @@ Follow-up, in the next change after Pilot 5:
   - Ancestry proofs need a non-shallow clone.
 - **Finding 12:** the helper exits quietly with status 1 when its reader closes the pipe early, and a test covers it.
 - **Findings 3 and 8** are covered in `docs/ADOPTING.md`.
-- **Still open:** findings 6, 7 and 11. Finding 11 is the helper and spec carrying the drill's dispatch and no-rollback rules.
+- **Still open:** finding 6 for the threat-model document (`docs/ADOPTING.md` section 4 states the stopping rule for adopters), finding 7, and finding 11, the helper and spec carrying the drill's dispatch and no-rollback rules.
 
 ## Current maturity
 
