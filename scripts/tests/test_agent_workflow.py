@@ -6,6 +6,7 @@ import importlib.util
 import io
 import json
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -312,6 +313,41 @@ class WorkflowV3Tests(unittest.TestCase):
                 evidence["records"][3]["runtimeAcceptance"] = "PASS"
                 path.write_text(json.dumps(evidence), encoding="utf-8")
                 self.assertTrue(agent_task.task_ready("K", manifest))
+
+    def test_finished_live_task_is_never_offered_again(self) -> None:
+        manifest = self.deploy_manifest()
+        manifest["status"]["J"] = "complete"
+        evidence = self.evidence()
+
+        def shown(evidence: dict) -> tuple[str, str]:
+            with tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                path = root / manifest["workflow"]["evidence_manifest"]
+                path.parent.mkdir(parents=True)
+                path.write_text(json.dumps(evidence), encoding="utf-8")
+                with patch.object(agent_task, "ROOT", root):
+                    listing, view = io.StringIO(), io.StringIO()
+                    with redirect_stdout(listing):
+                        agent_task.print_all(manifest)
+                    with redirect_stdout(view):
+                        agent_task.print_task("example", "J", manifest)
+            line = next(line for line in listing.getvalue().splitlines() if line.strip().startswith("J "))
+            return line.split()[1], view.getvalue()
+
+        evidence["records"][3].update(taskStatus="complete", runtimeAcceptance="PASS")
+        label, view = shown(evidence)
+        self.assertEqual(label, "DONE")
+        self.assertIn("Live gate: DONE", view)
+        self.assertIn("do not dispatch it again", view)
+        for acceptance in ("FAIL", None):
+            evidence["records"][3]["runtimeAcceptance"] = acceptance
+            label, view = shown(evidence)
+            self.assertEqual(label, "GATED")
+            self.assertIn("Live gate: GATED", view)
+            self.assertIn("no runtime acceptance PASS", view)
+        # Without any live record, a complete status still never reopens the preview.
+        label, _view = shown(self.evidence(approved=False))
+        self.assertEqual(label, "GATED")
 
     def test_invalid_versions_kinds_cycles_and_stage_aliases_fail(self) -> None:
         edits = (
@@ -1242,6 +1278,30 @@ class WorkflowV3Tests(unittest.TestCase):
         self.assertIn("'scripts/a b.py'", problems[0])
         self.assertIn("Live gate: GATED", output.getvalue())
         self.assertIn("Format problem: frozenBatch.validators path 'scripts/a b.py'", output.getvalue())
+
+    def test_documented_default_ports_match_the_code(self) -> None:
+        doc = (ROOT / "agent-work" / "EVIDENCE-MANIFEST.md").read_text(encoding="utf-8")
+        sentence = doc.split("left out when it is the scheme's default: ", 1)[1].split(". For other schemes", 1)[0]
+        pairs = re.findall(r"(\d+) for ((?:`[a-z0-9+.-]+`(?:, | and )?)+)", sentence)
+        # Every number in the sentence belongs to a parsed pair, so no listed port is skipped.
+        self.assertEqual(len(pairs), len(re.findall(r"\d+", sentence)))
+        documented: dict[str, int] = {}
+        for port, schemes in pairs:
+            for scheme in re.findall(r"`([^`]+)`", schemes):
+                self.assertNotIn(scheme, documented)
+                documented[scheme] = int(port)
+        self.assertEqual(documented, agent_task.DEFAULT_PORTS)
+
+    def test_documented_bracket_rule_matches_the_code(self) -> None:
+        doc = (ROOT / "agent-work" / "EVIDENCE-MANIFEST.md").read_text(encoding="utf-8")
+        rule = re.search(r"so `([^`]+)` and `([^`]+)` never close while `([^`]+)` does; "
+                         r"a `\]` with no open `\[` before it in the same segment is rejected", doc)
+        self.assertIsNotNone(rule)
+        for unclosed in (rule.group(1), rule.group(2)):
+            self.assertIsNotNone(agent_task.repo_path_problem(f"deploy/{unclosed}x", pattern=True))
+        self.assertIsNone(agent_task.repo_path_problem(f"deploy/{rule.group(3)}", pattern=True))
+        for lone in ("deploy/a]", "deploy/]", "deploy/[a]]"):
+            self.assertIsNotNone(agent_task.repo_path_problem(lone, pattern=True), lone)
 
     def test_many_protected_patterns_stay_fast(self) -> None:
         patterns = [f"service{index}/[a]/**/x" for index in range(1500)]

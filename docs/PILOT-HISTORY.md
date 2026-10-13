@@ -56,6 +56,15 @@ Findings, recorded for a later batch and not patched during the run:
 9. The terminal records cannot contain proof of their own merge, so task K is recorded `complete` before its step 4 (review, merge, `main` recheck); that step is reported outside them.
 10. Only one model was available, so the reviewer was a separate agent on the same model, not a different vendor.
 
+Follow-up, in the next change after Pilot 3:
+
+- Finding 1: `AGENTS.md` names this repository's deployment authority.
+- Finding 2: the helper labels a finished live task `DONE` when runtime acceptance passed, and `GATED` otherwise, instead of `PREVIEW`.
+- Findings 3 and 9: `agent-work/WORKFLOW-SPEC.md` describes the records check after deployment, and how the records' own merge is reported.
+- Findings 4 to 7: `agent-work/EVIDENCE-MANIFEST.md` says which git commands the `GIT_*` rule covers, what `model` holds when model identifiers stay out of the repository, which tree a batch path names, and how live settings are recorded.
+- Finding 8: tests compare the documented default ports and bracket rule with the code.
+- Finding 10: the pilot records say no other model was available, but the session's agent tool could in fact select a different model for a subagent. The coordinator missed this. The follow-up change was reviewed by a different model from its builder.
+
 ## Current maturity
 
 The repository-only path has passed a controlled pilot. The deployment path has passed one live pilot (Pilot 3), a low-risk prerelease of this repository, on its success path only; run cancellation, rollback, the retry boundary and frozen-batch invalidation were not exercised live.

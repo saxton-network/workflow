@@ -728,6 +728,17 @@ def task_ready(task_id: str, data: dict, evidence_path: Path | None = None) -> b
 
 
 
+def live_task_label(task_id: str, data: dict, evidence_path: Path | None = None) -> str:
+    """GATED, PREVIEW, READY, or DONE for a v3 live task, as the task view and --all show it."""
+    if data.get("status", {}).get(task_id) in DEFAULT_DEPENDENCY_SUCCESS_STATUSES:
+        # A finished live task is never offered for another preview or dispatch.
+        return "DONE" if final_reconciliation_ready(data, evidence_path) else "GATED"
+    gate = live_gate_state(data, evidence_path)
+    if gate == "READY" and not task_ready(task_id, data, evidence_path):
+        return "GATED"
+    return gate
+
+
 def print_coordinator(phase: str, data: dict) -> None:
     workflow = data.get("workflow", {})
     if not isinstance(workflow, dict):
@@ -769,9 +780,7 @@ def print_task(phase: str, task_id: str, data: dict) -> None:
     status = data.get("status", {}).get(task_id, "unknown")
     deps = task.get("depends_on", [])
     ready = task_ready(task_id, data)
-    gate = live_gate_state(data) if data.get("workflow_version") == 3 and task.get("kind") == "live_deployment" else None
-    if gate == "READY" and not ready:
-        gate = "GATED"
+    gate = live_task_label(task_id, data) if data.get("workflow_version") == 3 and task.get("kind") == "live_deployment" else None
 
     print(f"{phase.upper()} / TASK {task_id}")
     print(f"Name: {task['name']}")
@@ -790,8 +799,13 @@ def print_task(phase: str, task_id: str, data: dict) -> None:
     print()
     print("Agent instruction:")
     if gate is not None:
-        if gate == "GATED":
+        if gate == "DONE":
+            print("This live task is complete with runtime acceptance PASS for the readied source and fingerprint; "
+                  "do not dispatch it again. Another live change needs fresh readiness and a new approval.")
+        elif gate == "GATED":
             print("Do not dispatch this live task; its required evidence or dependency gate is closed.")
+            if status in DEFAULT_DEPENDENCY_SUCCESS_STATUSES:
+                print(f"Its status is {status}, but no runtime acceptance PASS is recorded for the readied source and fingerprint.")
             for problem in evidence_format_problems(data):
                 print(f"Format problem: {problem}")
         elif gate == "PREVIEW":
@@ -809,9 +823,7 @@ def print_all(data: dict) -> None:
     for task_id, task in data.get("tasks", {}).items():
         status = data.get("status", {}).get(task_id, "unknown")
         if data.get("workflow_version") == 3 and task.get("kind") == "live_deployment":
-            ready = live_gate_state(data)
-            if not task_ready(task_id, data) and ready == "READY":
-                ready = "GATED"
+            ready = live_task_label(task_id, data)
         else:
             ready = "READY" if task_ready(task_id, data) else "BLOCKED"
         print(f"{task_id:>2}  {ready:<7} {status:<12} {task['name']}")

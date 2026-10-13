@@ -238,6 +238,8 @@ Report:
 - independent review result;
 - live deployment result if applicable;
 - canonical refs and authority state if reconciliation is part of the workflow;
+- when the terminal task lands the workflow's records by pull request, the
+  merge commit and a fresh check of the authority ref after the merge;
 - validation summary;
 - deferred items.
 

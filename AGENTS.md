@@ -46,6 +46,8 @@ Never commit or place in evidence credentials, bearer tokens, private keys, runt
 
 An adopting repository must define its deployment authority. Workflow v3 records it in the deployment table as authority_remote and authority_ref.
 
+For this repository, the live change is publishing a GitHub release with `.github/workflows/release.yml` (see `docs/RELEASING.md`), and the deployment authority is `authority_remote = "origin"`, `authority_ref = "refs/heads/main"`: a release is published only from the exact reviewed commit at `main`. An adopting repository replaces this paragraph with its own.
+
 Deployment must remain pinned to the exact independently reviewed authoritative source. A known additive descendant may wait for final reconciliation only after object, ancestry, and changed-path proof and only when protected deployment inputs are unchanged. Unknown or destructive divergence stops mutation.
 
 ## Verification
