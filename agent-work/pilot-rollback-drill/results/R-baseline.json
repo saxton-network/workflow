@@ -1,0 +1,286 @@
+{
+  "recordedAt": "2026-10-13",
+  "mainSha": "92c51e6c69d7ed29ee6e879733ad4b801a82814e",
+  "tags": {
+    "v0.1.0-alpha.1": "a4cd8cf5008cafd3fdc2a1b864df56f89729267a",
+    "v0.1.0-alpha.10": "b2316d116d09d91788b9b653a126cb3edd702281",
+    "v0.1.0-alpha.11": "d568c5f18986ea122018bde2d1badb257346dd92",
+    "v0.1.0-alpha.12": "c7ad3c3b1ae3e0a07d7af0322f0688e7d4533c9f",
+    "v0.1.0-alpha.2": "36f726b26229ef1a88814f34d459d4655404d8d0",
+    "v0.1.0-alpha.3": "73e699c1454f8b3be0af40d1d8816412755a1327",
+    "v0.1.0-alpha.4": "c5ef4b8b478e17458143c2878992e7b7fc090ab0",
+    "v0.1.0-alpha.5": "02d4efad4099447ca6b2e8ef506c1efd19ba53fb",
+    "v0.1.0-alpha.6": "513d50470f490eb8d064cf20fda960c0277365c4",
+    "v0.1.0-alpha.7": "4a7e41839687e205f4706f846ba0204bec4976e3",
+    "v0.1.0-alpha.8": "b2808447f4b2684a52a4c4046cfe4852df58f440",
+    "v0.1.0-alpha.9": "329f5ffb40ef16d7537f2ee1239fd24868fea3ba"
+  },
+  "releases": [
+    {
+      "id": 411440138,
+      "tag": "v0.1.0-alpha.12",
+      "name": "Workflow v0.1.0-alpha.12",
+      "prerelease": true,
+      "draft": false,
+      "publishedAt": "2026-10-13T08:11:58Z",
+      "assets": [
+        {
+          "id": 636354943,
+          "name": "workflow-v0.1.0-alpha.12.zip",
+          "size": 104494,
+          "digest": "sha256:8d93a574d942867db7a8ad7bad5d15a2cb213d863e2637050d8541aa2a211ba6"
+        },
+        {
+          "id": 636354942,
+          "name": "workflow-v0.1.0-alpha.12.zip.sha256",
+          "size": 95,
+          "digest": "sha256:3c253fa2727edc144a975d0a29d0295f5e41ae1fb6ef4f6405b2ae726087dd64"
+        }
+      ]
+    },
+    {
+      "id": 411336897,
+      "tag": "v0.1.0-alpha.11",
+      "name": "Workflow v0.1.0-alpha.11",
+      "prerelease": true,
+      "draft": false,
+      "publishedAt": "2026-10-13T06:04:47Z",
+      "assets": [
+        {
+          "id": 636077152,
+          "name": "workflow-v0.1.0-alpha.11.zip",
+          "size": 66734,
+          "digest": "sha256:b8c4c8c0a4ce76bd6851ae18a161e556a95f8c765639a62ab064ed3c2bd6c2f1"
+        },
+        {
+          "id": 636077150,
+          "name": "workflow-v0.1.0-alpha.11.zip.sha256",
+          "size": 95,
+          "digest": "sha256:5dccd42e1288202991278e56f84b1bcc84575d6004c10d525c31524f3241921f"
+        }
+      ]
+    },
+    {
+      "id": 411170622,
+      "tag": "v0.1.0-alpha.10",
+      "name": "Workflow v0.1.0-alpha.10",
+      "prerelease": true,
+      "draft": false,
+      "publishedAt": "2026-10-13T02:00:45Z",
+      "assets": [
+        {
+          "id": 635581124,
+          "name": "workflow-v0.1.0-alpha.10.zip",
+          "size": 66270,
+          "digest": "sha256:3e6dab07ccfaffdcc39a9e77800bb3eec61e975a0cc3f51be1965658730da097"
+        },
+        {
+          "id": 635581126,
+          "name": "workflow-v0.1.0-alpha.10.zip.sha256",
+          "size": 95,
+          "digest": "sha256:5336c25583e8c7ff26874adb184c607a72f0cce9221298f9c2d7c9163545a083"
+        }
+      ]
+    },
+    {
+      "id": 411029773,
+      "tag": "v0.1.0-alpha.9",
+      "name": "Workflow v0.1.0-alpha.9",
+      "prerelease": true,
+      "draft": false,
+      "publishedAt": "2026-10-12T22:01:14Z",
+      "assets": [
+        {
+          "id": 635112352,
+          "name": "workflow-v0.1.0-alpha.9.zip",
+          "size": 62930,
+          "digest": "sha256:fdfa7d66c1391c869e45bcc2dc6d8ca5bc889965f28c5ebcedc5d5cf0abe30fa"
+        },
+        {
+          "id": 635112348,
+          "name": "workflow-v0.1.0-alpha.9.zip.sha256",
+          "size": 94,
+          "digest": "sha256:99bc74c4d62bea49dc77e2b55fa9c1e1880782f9900ba2f8e8c4d2a2a97861a1"
+        }
+      ]
+    },
+    {
+      "id": 411022355,
+      "tag": "v0.1.0-alpha.8",
+      "name": "Workflow v0.1.0-alpha.8",
+      "prerelease": true,
+      "draft": false,
+      "publishedAt": "2026-10-12T21:48:28Z",
+      "assets": [
+        {
+          "id": 635084685,
+          "name": "workflow-v0.1.0-alpha.8.zip",
+          "size": 60730,
+          "digest": "sha256:13d9a905769b0e79eacf7d28f7170b207d510282593d9e7ede5d7427280f801e"
+        },
+        {
+          "id": 635084690,
+          "name": "workflow-v0.1.0-alpha.8.zip.sha256",
+          "size": 94,
+          "digest": "sha256:f2e16f3e05f13c9b53e0865cefd2a00c81b8c9fd0e4f1bac9b09ca6383f297b6"
+        }
+      ]
+    },
+    {
+      "id": 411014865,
+      "tag": "v0.1.0-alpha.7",
+      "name": "Workflow v0.1.0-alpha.7",
+      "prerelease": true,
+      "draft": false,
+      "publishedAt": "2026-10-12T21:35:40Z",
+      "assets": [
+        {
+          "id": 635059679,
+          "name": "workflow-v0.1.0-alpha.7.zip",
+          "size": 59002,
+          "digest": "sha256:2ae768e14cc9eb6d763f020a3ba5a8f7a664819dbcfad4b314a1a3d04295c1b8"
+        },
+        {
+          "id": 635059684,
+          "name": "workflow-v0.1.0-alpha.7.zip.sha256",
+          "size": 94,
+          "digest": "sha256:b4ea6a2cfa729a3eda897f4ceb1654568f5ed38b0780659b2059cbf733db6182"
+        }
+      ]
+    },
+    {
+      "id": 411000521,
+      "tag": "v0.1.0-alpha.6",
+      "name": "Workflow v0.1.0-alpha.6",
+      "prerelease": true,
+      "draft": false,
+      "publishedAt": "2026-10-12T21:13:10Z",
+      "assets": [
+        {
+          "id": 635010348,
+          "name": "workflow-v0.1.0-alpha.6.zip",
+          "size": 57227,
+          "digest": "sha256:4656e057b658bc4902a98da0bb7c844b69336b460ab1433baf45a8bce40d2ef8"
+        },
+        {
+          "id": 635010350,
+          "name": "workflow-v0.1.0-alpha.6.zip.sha256",
+          "size": 94,
+          "digest": "sha256:4734e7d9375fd9242be58c680bc9e8758af9d5d2487539258c13543db853dbfb"
+        }
+      ]
+    },
+    {
+      "id": 410987944,
+      "tag": "v0.1.0-alpha.5",
+      "name": "Workflow v0.1.0-alpha.5",
+      "prerelease": true,
+      "draft": false,
+      "publishedAt": "2026-10-12T20:52:31Z",
+      "assets": [
+        {
+          "id": 634961298,
+          "name": "workflow-v0.1.0-alpha.5.zip",
+          "size": 55353,
+          "digest": "sha256:f863a48bdb3e886cb17919586f927da30d519db6088a87dd969650cc3b8c8d96"
+        },
+        {
+          "id": 634961301,
+          "name": "workflow-v0.1.0-alpha.5.zip.sha256",
+          "size": 94,
+          "digest": "sha256:aef655a17574eba8ffb965e23beef7d267bc060282e8160d7033cfa6e2826faf"
+        }
+      ]
+    },
+    {
+      "id": 410973940,
+      "tag": "v0.1.0-alpha.4",
+      "name": "Workflow v0.1.0-alpha.4",
+      "prerelease": true,
+      "draft": false,
+      "publishedAt": "2026-10-12T20:29:23Z",
+      "assets": [
+        {
+          "id": 634908117,
+          "name": "workflow-v0.1.0-alpha.4.zip",
+          "size": 52435,
+          "digest": "sha256:54eed461ce5c62cca5132b86dd7b6c49ac33e93d8dd1df331863d02cb53d3317"
+        },
+        {
+          "id": 634908116,
+          "name": "workflow-v0.1.0-alpha.4.zip.sha256",
+          "size": 94,
+          "digest": "sha256:ad5f92ff3726ef3ce7dcf62a3987021e4f89495fcd486a010ffa0dfcf9443e20"
+        }
+      ]
+    },
+    {
+      "id": 410963802,
+      "tag": "v0.1.0-alpha.3",
+      "name": "Workflow v0.1.0-alpha.3",
+      "prerelease": true,
+      "draft": false,
+      "publishedAt": "2026-10-12T20:12:53Z",
+      "assets": [
+        {
+          "id": 634869044,
+          "name": "workflow-v0.1.0-alpha.3.zip",
+          "size": 49924,
+          "digest": "sha256:494cee71aa3808f7ad495b69ef912e12bb6d6ed6a4372fb8928566925495418d"
+        },
+        {
+          "id": 634869048,
+          "name": "workflow-v0.1.0-alpha.3.zip.sha256",
+          "size": 94,
+          "digest": "sha256:9457e7994da1e67f08da260c1a984c3200044f8b6256e605538b0db8688f5b16"
+        }
+      ]
+    },
+    {
+      "id": 410635101,
+      "tag": "v0.1.0-alpha.2",
+      "name": "Workflow v0.1.0-alpha.2",
+      "prerelease": true,
+      "draft": false,
+      "publishedAt": "2026-10-12T13:31:17Z",
+      "assets": [
+        {
+          "id": 633878764,
+          "name": "workflow-v0.1.0-alpha.2.zip",
+          "size": 48546,
+          "digest": "sha256:ab937f60c9870273690cb1e33cd13a6fc28b707d766ff36bf73660994ba94323"
+        },
+        {
+          "id": 633878768,
+          "name": "workflow-v0.1.0-alpha.2.zip.sha256",
+          "size": 94,
+          "digest": "sha256:f8be50c0c7e9fcf46b482394b8d1f1ac54336fc21e1463e3a42fc6947eee0464"
+        }
+      ]
+    },
+    {
+      "id": 396574239,
+      "tag": "v0.1.0-alpha.1",
+      "name": "Workflow v0.1.0-alpha.1",
+      "prerelease": true,
+      "draft": false,
+      "publishedAt": "2026-09-25T12:12:06Z",
+      "assets": [
+        {
+          "id": 588288450,
+          "name": "workflow-v0.1.0-alpha.1.zip",
+          "size": 41092,
+          "digest": "sha256:570a3092d61edd8cdb855abfaddbda15e870838dc18f33e473e6551ed5e8363a"
+        },
+        {
+          "id": 588288449,
+          "name": "workflow-v0.1.0-alpha.1.zip.sha256",
+          "size": 94,
+          "digest": "sha256:003b4b6c42430cab73c5c3feb1fa88cf6e84a1bfd69234bf1406018d13ce5be7"
+        }
+      ]
+    }
+  ],
+  "authenticatedReleaseListIncludesDrafts": true,
+  "draftCount": 0
+}

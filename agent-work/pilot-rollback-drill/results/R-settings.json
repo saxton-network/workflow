@@ -1,0 +1,7 @@
+{
+  "recordedAt": "2026-10-13",
+  "immutableReleases": {"enabled": false, "enforced_by_owner": false},
+  "rulesets": [],
+  "githubConnectionIdentity": "caffeinatedcultist",
+  "draftVisibility": "The GitHub connection acts as caffeinatedcultist, who pushed to main and merged PRs #13-#15 through it, so it has write access; GitHub shows draft releases to accounts with write access. No draft existed to observe directly."
+}
