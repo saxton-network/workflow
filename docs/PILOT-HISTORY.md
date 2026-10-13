@@ -59,16 +59,16 @@ Findings, recorded for a later batch and not patched during the run:
 Follow-up, in the next change after Pilot 3:
 
 - Finding 1: `AGENTS.md` names this repository's deployment authority.
-- Finding 2: the helper labels a finished live task `DONE` when runtime acceptance passed, and `GATED` otherwise, instead of `PREVIEW`.
+- Finding 2: the helper labels a finished live task `DONE` when runtime acceptance passed, and `GATED` otherwise, instead of `PREVIEW`, even while the manifest status still lags behind a finished attempt record.
 - Findings 3 and 9: `agent-work/WORKFLOW-SPEC.md` describes the records check after deployment, and how the records' own merge is reported.
 - Findings 4 to 7: `agent-work/EVIDENCE-MANIFEST.md` says which git commands the `GIT_*` rule covers, what `model` holds when model identifiers stay out of the repository, which tree a batch path names, and how live settings are recorded.
 - Finding 8: tests compare the documented default ports and bracket rule with the code.
-- Finding 10: the pilot records say no other model was available, but the session's agent tool could in fact select a different model for a subagent. The coordinator missed this. The follow-up change was reviewed by a different model from its builder.
+- Finding 10: the pilot records say no other model was available, but the session's agent tool could in fact select a different model for a subagent. The coordinator missed this. The follow-up's independent review used a different model from its builder; its verdict and findings are recorded on the follow-up pull request (#14).
 
 ## Current maturity
 
 The repository-only path has passed a controlled pilot. The deployment path has passed one live pilot (Pilot 3), a low-risk prerelease of this repository, on its success path only; run cancellation, rollback, the retry boundary and frozen-batch invalidation were not exercised live.
 
-The framework should still be treated as experimental: one live run is not broad coverage, and Pilot 3's findings are open.
+The framework should still be treated as experimental: one live run is not broad coverage, and the fixes for Pilot 3's findings have not yet been exercised by another live run.
 
 The important pattern is deliberate: a pilot finding stops advancement, becomes a narrow validator/test repair, receives independent review, and only then is the same scenario retried.

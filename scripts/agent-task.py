@@ -210,6 +210,7 @@ def validate_manifest(data: dict) -> None:
         _fail("final reconciliation must require successful live deployment")
 
 
+SOURCE_ONLY_BATCH_LISTS = ("validators", "installedScripts")
 BATCH_PATH_LISTS = ("deploymentConfiguration", "validators", "installedScripts")
 
 
@@ -473,6 +474,14 @@ def _read_evidence(data: dict, evidence_path: Path | None) -> dict | None:
     return evidence
 
 
+def _source_only_problem(data: dict, path: object) -> str | None:
+    """Validators and installed scripts must be files the reviewer saw at the source, not coordinator records."""
+    records = f"agent-work/{data.get('phase')}/"
+    if isinstance(path, str) and path.startswith(records):
+        return f"is under {records}; validators and installed scripts must be read from the reviewed source"
+    return None
+
+
 def live_gate_state(data: dict, evidence_path: Path | None = None, *, allow_completed: bool = False) -> str:
     """Return GATED, PREVIEW, or READY; the coordinator still verifies real approval and drift."""
     deployment = data["deployment"]
@@ -566,6 +575,8 @@ def live_gate_state(data: dict, evidence_path: Path | None = None, *, allow_comp
     if not batch["validators"]:
         # A batch frozen without any validator has proven nothing about the candidate.
         return "GATED"
+    if any(_source_only_problem(data, entry["path"]) for key in SOURCE_ONLY_BATCH_LISTS for entry in batch[key]):
+        return "GATED"
     targets = batch["deploymentTargets"]
     if not isinstance(targets, list) or not targets:
         return "GATED"
@@ -653,6 +664,8 @@ def evidence_format_problems(data: dict, evidence_path: Path | None = None) -> l
             path = entry.get("path") if isinstance(entry, dict) else None
             if (problem := batch_path_problem(path)) is not None:
                 problems.append(f"frozenBatch.{key} path {path!r} {problem}")
+            elif key in SOURCE_ONLY_BATCH_LISTS and (problem := _source_only_problem(data, path)) is not None:
+                problems.append(f"frozenBatch.{key} path {path!r} {problem}")
     for target in batch.get("deploymentTargets") if isinstance(batch.get("deploymentTargets"), list) else []:
         destination = target.get("destination") if isinstance(target, dict) else None
         if (problem := destination_problem(destination)) is not None:
@@ -728,9 +741,27 @@ def task_ready(task_id: str, data: dict, evidence_path: Path | None = None) -> b
 
 
 
+def _live_attempt_finished(data: dict, evidence_path: Path | None = None) -> bool:
+    """True when the latest live record since the latest readiness record reports a finished attempt."""
+    records_data = _read_evidence(data, evidence_path)
+    if records_data is None:
+        return False
+    deployment = data["deployment"]
+    attempt = None
+    for record in records_data["records"]:
+        if not isinstance(record, dict):
+            continue
+        if record.get("taskId") == deployment["readiness_task"]:
+            attempt = None
+        elif record.get("taskId") == deployment["live_task"]:
+            attempt = record
+    return attempt is not None and attempt.get("taskStatus") in DEFAULT_DEPENDENCY_SUCCESS_STATUSES
+
+
 def live_task_label(task_id: str, data: dict, evidence_path: Path | None = None) -> str:
-    """GATED, PREVIEW, READY, or DONE for a v3 live task, as the task view and --all show it."""
-    if data.get("status", {}).get(task_id) in DEFAULT_DEPENDENCY_SUCCESS_STATUSES:
+    """GATED, PREVIEW, READY, or DONE for a v3 live task, as the task view, --all and --ready show it."""
+    if (data.get("status", {}).get(task_id) in DEFAULT_DEPENDENCY_SUCCESS_STATUSES or
+            _live_attempt_finished(data, evidence_path)):
         # A finished live task is never offered for another preview or dispatch.
         return "DONE" if final_reconciliation_ready(data, evidence_path) else "GATED"
     gate = live_gate_state(data, evidence_path)
@@ -834,11 +865,11 @@ def print_ready(data: dict) -> None:
     for task_id, task in data.get("tasks", {}).items():
         status = data.get("status", {}).get(task_id, "unknown")
         if data.get("workflow_version") == 3 and task.get("kind") == "live_deployment":
-            gate = live_gate_state(data)
+            gate = live_task_label(task_id, data)
             if gate == "PREVIEW" and _dependencies_ready(task_id, data) and status not in {"complete", "passed", "skipped"}:
                 found = True
                 print(f"{task_id}  {task['name']}  ->  ELIGIBLE FOR APPROVAL PREVIEW; not ready for live mutation")
-            elif gate == "READY" and task_ready(task_id, data) and status not in {"complete", "passed", "skipped"}:
+            elif gate == "READY" and status not in {"complete", "passed", "skipped"}:
                 found = True
                 print(f"{task_id}  {task['name']}  ->  {task['file']} (coordinator must verify approval and fresh drift)")
             continue
