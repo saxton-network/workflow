@@ -40,6 +40,91 @@
         "path": "scripts/agent-task.py",
         "sha256": "52cf1893439688b4ce80ca1b08ea27aff3ca41b99fbbaad4a155878d0a7b8d5a"
       }
+    },
+    {
+      "taskId": "B",
+      "attempt": 1,
+      "role": "independent_review",
+      "model": null,
+      "branch": "pilot/rollback-drill-records",
+      "worktree": null,
+      "baseSha": "92c51e6c69d7ed29ee6e879733ad4b801a82814e",
+      "candidateSha": "92c51e6c69d7ed29ee6e879733ad4b801a82814e",
+      "deploymentSourceSha": "92c51e6c69d7ed29ee6e879733ad4b801a82814e",
+      "taskStatus": "findings",
+      "readinessVerdict": null,
+      "startedAt": null,
+      "completedAt": null,
+      "changedPaths": [],
+      "reviewFindingIds": [
+        "L1",
+        "L2",
+        "L3",
+        "L4",
+        "L5"
+      ],
+      "approvalReference": null,
+      "validation": [
+        {
+          "checkId": "validate-repository",
+          "inputFingerprint": null,
+          "validatorSha256": null,
+          "exitCode": 0,
+          "verdict": "PASS",
+          "recordedAt": null,
+          "evidencePath": "agent-work/pilot-rollback-drill/results/B-1.md"
+        }
+      ],
+      "evidence": [
+        {
+          "path": "agent-work/pilot-rollback-drill/results/B-1.md",
+          "sha256": "24b1bbcb757b088f1c58ba14e656bbe4169666f73985202e2814703e19ea5426"
+        }
+      ],
+      "helper": {
+        "path": "scripts/agent-task.py",
+        "sha256": "52cf1893439688b4ce80ca1b08ea27aff3ca41b99fbbaad4a155878d0a7b8d5a"
+      }
+    },
+    {
+      "taskId": "C",
+      "attempt": 1,
+      "role": "repair",
+      "model": null,
+      "branch": "pilot/rollback-drill-records",
+      "worktree": null,
+      "baseSha": "92c51e6c69d7ed29ee6e879733ad4b801a82814e",
+      "candidateSha": "92c51e6c69d7ed29ee6e879733ad4b801a82814e",
+      "deploymentSourceSha": null,
+      "taskStatus": "complete",
+      "readinessVerdict": null,
+      "startedAt": null,
+      "completedAt": null,
+      "changedPaths": [
+        "agent-work/pilot-rollback-drill/CONTRACT.md",
+        "agent-work/pilot-rollback-drill/J-live.md",
+        "agent-work/pilot-rollback-drill/PLAN.md",
+        "agent-work/pilot-rollback-drill/R-readiness.md"
+      ],
+      "reviewFindingIds": [
+        "L1",
+        "L2",
+        "L3",
+        "L4",
+        "L5"
+      ],
+      "approvalReference": null,
+      "validation": [],
+      "evidence": [
+        {
+          "path": "agent-work/pilot-rollback-drill/results/C-1.md",
+          "sha256": "a0771a1eef41e8bca8665e08805369a6b30d53ab34cee49137f21a885e1c006e"
+        }
+      ],
+      "helper": {
+        "path": "scripts/agent-task.py",
+        "sha256": "52cf1893439688b4ce80ca1b08ea27aff3ca41b99fbbaad4a155878d0a7b8d5a"
+      }
     }
   ]
 }

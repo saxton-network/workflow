@@ -9,11 +9,14 @@
 - **Source:** `origin/main` equals the source, checked with no inherited `GIT_*` variables; record `gitDivergence` `identical: true`.
 - **Validation:** `bash scripts/validate-repository.sh` passes at the source in a clean worktree; Validate CI is green on the source.
 - **Name is free:** no `v0.0.0-drill.1` tag, and no release with that tag, drafts included.
-- **Settings:** immutable releases are off, recorded in `results/R-settings.json`.
+- **Settings, recorded in `results/R-settings.json`:**
+  - immutable releases are off;
+  - the repository has no rulesets that could block deleting a tag or release (`GET /repos/{owner}/{repo}/rulesets` returns an empty list).
+- **Draft visibility:** the releases list is read through the GitHub connection, which acts as the repository owner and therefore sees drafts. R records the authenticated identity, and that a draft-capable view was used.
 - **Baseline:** `results/R-baseline.json`, holding:
   - the full tag list with targets;
   - the full release list, drafts included, with IDs, tags, flags and publish times;
-  - alpha.12's asset digests.
+  - the asset names, sizes and digests of every release, not only alpha.12.
 - **ZIP:** `git archive --format=zip --prefix=workflow-v0.0.0-drill.1/ <source>`; two builds must be byte-identical.
 - **Fault:** the local proof of the injected fault, as `CONTRACT.md` defines it.
 

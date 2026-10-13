@@ -14,11 +14,15 @@ One dispatch of `.github/workflows/release.yml` on `main` with `version=v0.0.0-d
 
 ## Declared deviation: the injected fault
 
-The spec says readiness freezes a proven batch. This drill deliberately freezes one expectation that is known to be wrong, as a live-only assertion whose expected outcome is `FAIL`. This extends the spec's clause that live-only assertions must be identified explicitly; it is declared here, in the plan, and in the live preview, and the owner approved it (plan decision 6). Readiness `PASS` means every other check passed and the injected file differs from the correct one exactly as declared. It does not mean the batch is free of known failures.
+The spec says readiness freezes a proven batch. This drill deliberately freezes one expectation that is known to be wrong: the INJECTED expected checksum. It is asserted twice, locally in R (where it must fail as declared) and live in check 4 (where it is expected to fail). The spec has no clause for a known failure, so this is a declared exception, stated here, in the plan, and in the live preview, and approved by the owner (plan decision 6). Readiness `PASS` means every other check passed and the injected file differs from the correct one exactly as declared. It does not mean the batch is free of known failures.
 
 - `results/R-expected-checksum.txt` holds the correct bytes of the `.sha256` asset: `<sha256>  workflow-v0.0.0-drill.1.zip` and a newline.
 - `results/R-expected-checksum-INJECTED.txt` is identical except that bytes 0–63, the hash, are 64 `0` characters.
-- **Readiness proof.** The `.sha256` line computed from the local ZIP must equal the correct file and differ from the INJECTED file in bytes 0–63 only; otherwise readiness fails.
+- **Readiness proof.**
+  - R computes the line exactly as `release.yml` does: in the ZIP's own directory, `sha256sum workflow-v0.0.0-drill.1.zip`.
+  - The result must match `^[0-9a-f]{64}  workflow-v0\.0\.0-drill\.1\.zip\n$` (two spaces, relative name, one newline) and equal `R-expected-checksum.txt`.
+  - It must differ from the INJECTED file in bytes 0–63 only.
+  - Otherwise readiness fails.
 - **Runtime acceptance.** The checks run in this order, stopping at the first failure:
   1. The run succeeded, with `head_sha` equal to the source.
   2. The release is published, a prerelease, not a draft, with exactly the two expected assets.
@@ -41,7 +45,11 @@ The spec says readiness freezes a proven batch. This drill deliberately freezes 
 
 ## Rollback
 
-The owner deletes on the GitHub website; this session has no tool that deletes a release or a tag. The coordinator reads the actual state first and gives only the steps for what exists. Each deletion is verified before the next.
+The owner deletes on the GitHub website; this session has no tool that deletes a release or a tag. Each deletion is verified before the next.
+
+- **The run must have finished first.** Before reading the state, the coordinator confirms the workflow run is `completed`. If it is still queued or running, it cancels the run and waits until the run reports `completed`, so nothing can be created after the state is read.
+- **Delete only what exists.** The coordinator then reads the actual state and gives only the steps for what exists.
+- **The run record stays.** The Actions run record is not deleted and is not part of the baseline.
 
 | State found | Owner steps |
 | --- | --- |
@@ -53,7 +61,8 @@ The owner deletes on the GitHub website; this session has no tool that deletes a
 
 - **Release.** Use the direct link `https://github.com/saxton-network/workflow/releases/tag/v0.0.0-drill.1`. For a draft, use the exact `html_url` and release ID the coordinator reads from the releases list.
 - **Tag.** On the Tags page, use the row named exactly `v0.0.0-drill.1`.
-- **Never act on any other release or tag.** If anything other than a drill item differs from `results/R-baseline.json`, stop and report what changed. alpha.12's tag points at `c7ad3c3b1ae3e0a07d7af0322f0688e7d4533c9f`. Its tag could be recreated, but its files cannot be republished identically.
+- **No other changes meanwhile.** The live preview asks the owner not to create or delete any other release or tag until V has verified.
+- **Never act on any other release or tag.** If anything other than a drill item differs from `results/R-baseline.json`, stop and report what changed. The owner confirms whether they made the change; it is never "fixed" as part of the drill. alpha.12's tag points at `c7ad3c3b1ae3e0a07d7af0322f0688e7d4533c9f`. Its tag could be recreated, but its files cannot be republished identically.
 
 ## Retry boundary
 

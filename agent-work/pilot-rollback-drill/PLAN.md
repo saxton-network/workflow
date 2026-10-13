@@ -40,7 +40,7 @@ Publish a drill prerelease `v0.0.0-drill.1` of this repository with `.github/wor
 
 ## The injected fault and the declared deviation (CONTRACT.md; review finding 1)
 
-**Declared deviation from the readiness rules.** The spec says readiness executes every required validator and freezes a proven batch. This drill deliberately freezes one expectation that is known to be wrong. It does so under the spec's clause that live-only assertions must be identified explicitly, and declares the comparison below as a live-only assertion whose expected outcome is `FAIL`. Readiness `PASS` means every other check passed and the injected file differs from the correct one exactly as declared. It does not mean the batch is free of known failures. The owner approves this deviation (decision 6), and the preview states it.
+**Declared deviation from the readiness rules.** The spec says readiness executes every required validator and freezes a proven batch. This drill deliberately freezes one expectation that is known to be wrong. It is asserted locally in R, where it must fail as declared, and live in check 4, where it is expected to fail. The spec has no clause for a known failure, so this is a declared exception. Readiness `PASS` means every other check passed and the injected file differs from the correct one exactly as declared. It does not mean the batch is free of known failures. The owner approves this deviation (decision 6), and the preview states it.
 
 - Readiness freezes two expected files:
   - `results/R-expected-checksum.txt`: the correct bytes, `<sha256>  workflow-v0.0.0-drill.1.zip\n`.
