@@ -16,8 +16,8 @@ human_gate_tasks = ["J"]
 terminal_task = "K"
 
 [status]
-A = "pending"
-B = "blocked"
+A = "complete"
+B = "pending"
 C = "conditional"
 P = "blocked"
 R = "blocked"
