@@ -65,10 +65,43 @@ Follow-up, in the next change after Pilot 3:
 - Finding 8: tests compare the documented default ports and bracket rule with the code.
 - Finding 10: the pilot records say no other model was available, but the session's agent tool could in fact select a different model for a subagent. The coordinator missed this. The follow-up's independent review used a different model from its builder; its verdict and findings are recorded on the follow-up pull request (#14).
 
+## Pilot 4: rollback drill
+
+Goal: exercise the failure path live, on purpose. The drill covered:
+
+- a failed runtime acceptance check;
+- the stop at that check;
+- an owner-performed rollback;
+- verification against an exact baseline;
+- how a failed workflow lands its records.
+
+The full records are in `agent-work/pilot-rollback-drill/` (`drill: true`).
+
+What happened:
+
+- A drill prerelease `v0.0.0-drill.1` was published from `main` after the owner's explicit yes. One acceptance check was rigged to fail, as a declared exception: the frozen expected checksum had its hash replaced by zeros, and readiness proved locally that the rigged file and the correct file differed only in that hash.
+- Checks 1–3 passed: the right commit was built, and the published ZIP is byte-identical to the frozen local build. Check 4 failed with exactly the declared signature, so the failure was the injected one.
+- The coordinator stopped and recorded the attempt `failed`. The owner then deleted the release and then the tag, through direct links, one step at a time; each deletion was verified before the next.
+- Final verification: every tag and every release, with every asset digest, equals the readiness snapshot exactly. alpha.12 and `main` are unchanged.
+- **Drill verdict: PASS.**
+- The helper reported what the plan predicted at every step. After the failure that included `PREVIEW` for J again and an "eligible for approval preview" line from `--ready`.
+- Independent review of the drill contract before the live run caught five Low gaps, including that the Actions run must finish before the rollback reads the state. They were repaired before readiness.
+
+Findings, recorded for a later batch:
+
+1. After a failed live attempt, the helper offers the same fingerprint for a new approval preview, although the drill tag had been public. The retry boundary is enforced only by the contract, not by the helper. A fresh readiness record could be required before another preview.
+2. The spec says a workflow completes only when its terminal task succeeds, and has no name for "stopped after verified rollback". This drill used an `other`-kind task (V) with `required_status = {J: "failed"}` to finish its work.
+3. The spec treats a records `protected_change` as expected only after runtime acceptance passed. It does not cover records landed after a failed and rolled-back deployment.
+4. The spec has no clause for a deliberately injected failure; the drill relied on a declared exception in its contract.
+5. When review B found issues, the coordinator ran repair C without first setting B's manifest status to `findings`. The evidence held the `findings` record, but the manifest skipped that step, and the helper does not detect it afterwards.
+6. Independent reviews of ordinary PRs, such as PR #15, are not recorded anywhere durable.
+7. While a tag exists, GitHub serves a plain tag page at `/releases/tag/<tag>` even after the release is deleted. Rollback checks must use the API, not the page.
+8. Draft visibility for the GitHub connection could only be inferred from write access, not observed.
+
 ## Current maturity
 
-The repository-only path has passed a controlled pilot. The deployment path has passed one live pilot (Pilot 3), a low-risk prerelease of this repository, on its success path only; run cancellation, rollback, the retry boundary and frozen-batch invalidation were not exercised live.
+The repository-only path has passed a controlled pilot. The deployment path has passed one live pilot on its success path (Pilot 3) and one live rollback drill (Pilot 4). The drill exercised only the published-release-plus-tag row of the rollback matrix, performed by the owner by hand. The tag-only and draft rows, run cancellation, the retry boundary, and frozen-batch invalidation have not been exercised live.
 
-The framework should still be treated as experimental: one live run is not broad coverage, and the fixes for Pilot 3's findings have not yet been exercised by another live run.
+The framework should still be treated as experimental: two live runs are not broad coverage, and Pilot 4's findings are open.
 
 The important pattern is deliberate: a pilot finding stops advancement, becomes a narrow validator/test repair, receives independent review, and only then is the same scenario retried.

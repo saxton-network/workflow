@@ -1,0 +1,436 @@
+{
+  "workflowVersion": 3,
+  "workflowId": "pilot-rollback-drill",
+  "records": [
+    {
+      "taskId": "A",
+      "attempt": 1,
+      "role": "implementation",
+      "model": null,
+      "branch": "pilot/rollback-drill-records",
+      "worktree": null,
+      "baseSha": "92c51e6c69d7ed29ee6e879733ad4b801a82814e",
+      "candidateSha": "92c51e6c69d7ed29ee6e879733ad4b801a82814e",
+      "deploymentSourceSha": null,
+      "taskStatus": "complete",
+      "readinessVerdict": null,
+      "startedAt": null,
+      "completedAt": null,
+      "changedPaths": [],
+      "reviewFindingIds": [],
+      "approvalReference": null,
+      "validation": [
+        {
+          "checkId": "validate-ci",
+          "inputFingerprint": null,
+          "validatorSha256": null,
+          "exitCode": null,
+          "verdict": "PASS",
+          "recordedAt": null,
+          "evidencePath": "agent-work/pilot-rollback-drill/results/A.md"
+        }
+      ],
+      "evidence": [
+        {
+          "path": "agent-work/pilot-rollback-drill/results/A.md",
+          "sha256": "8b1ac51fab2cdf9facbabc5a046e287f3ad6f740fb5b4b14bbfa16e0becc69af"
+        }
+      ],
+      "helper": {
+        "path": "scripts/agent-task.py",
+        "sha256": "52cf1893439688b4ce80ca1b08ea27aff3ca41b99fbbaad4a155878d0a7b8d5a"
+      }
+    },
+    {
+      "taskId": "B",
+      "attempt": 1,
+      "role": "independent_review",
+      "model": null,
+      "branch": "pilot/rollback-drill-records",
+      "worktree": null,
+      "baseSha": "92c51e6c69d7ed29ee6e879733ad4b801a82814e",
+      "candidateSha": "92c51e6c69d7ed29ee6e879733ad4b801a82814e",
+      "deploymentSourceSha": "92c51e6c69d7ed29ee6e879733ad4b801a82814e",
+      "taskStatus": "findings",
+      "readinessVerdict": null,
+      "startedAt": null,
+      "completedAt": null,
+      "changedPaths": [],
+      "reviewFindingIds": [
+        "L1",
+        "L2",
+        "L3",
+        "L4",
+        "L5"
+      ],
+      "approvalReference": null,
+      "validation": [
+        {
+          "checkId": "validate-repository",
+          "inputFingerprint": null,
+          "validatorSha256": null,
+          "exitCode": 0,
+          "verdict": "PASS",
+          "recordedAt": null,
+          "evidencePath": "agent-work/pilot-rollback-drill/results/B-1.md"
+        }
+      ],
+      "evidence": [
+        {
+          "path": "agent-work/pilot-rollback-drill/results/B-1.md",
+          "sha256": "24b1bbcb757b088f1c58ba14e656bbe4169666f73985202e2814703e19ea5426"
+        }
+      ],
+      "helper": {
+        "path": "scripts/agent-task.py",
+        "sha256": "52cf1893439688b4ce80ca1b08ea27aff3ca41b99fbbaad4a155878d0a7b8d5a"
+      }
+    },
+    {
+      "taskId": "C",
+      "attempt": 1,
+      "role": "repair",
+      "model": null,
+      "branch": "pilot/rollback-drill-records",
+      "worktree": null,
+      "baseSha": "92c51e6c69d7ed29ee6e879733ad4b801a82814e",
+      "candidateSha": "92c51e6c69d7ed29ee6e879733ad4b801a82814e",
+      "deploymentSourceSha": null,
+      "taskStatus": "complete",
+      "readinessVerdict": null,
+      "startedAt": null,
+      "completedAt": null,
+      "changedPaths": [
+        "agent-work/pilot-rollback-drill/CONTRACT.md",
+        "agent-work/pilot-rollback-drill/J-live.md",
+        "agent-work/pilot-rollback-drill/PLAN.md",
+        "agent-work/pilot-rollback-drill/R-readiness.md"
+      ],
+      "reviewFindingIds": [
+        "L1",
+        "L2",
+        "L3",
+        "L4",
+        "L5"
+      ],
+      "approvalReference": null,
+      "validation": [],
+      "evidence": [
+        {
+          "path": "agent-work/pilot-rollback-drill/results/C-1.md",
+          "sha256": "a0771a1eef41e8bca8665e08805369a6b30d53ab34cee49137f21a885e1c006e"
+        }
+      ],
+      "helper": {
+        "path": "scripts/agent-task.py",
+        "sha256": "52cf1893439688b4ce80ca1b08ea27aff3ca41b99fbbaad4a155878d0a7b8d5a"
+      }
+    },
+    {
+      "taskId": "B",
+      "attempt": 2,
+      "role": "independent_review",
+      "model": null,
+      "branch": "pilot/rollback-drill-records",
+      "worktree": null,
+      "baseSha": "92c51e6c69d7ed29ee6e879733ad4b801a82814e",
+      "candidateSha": "92c51e6c69d7ed29ee6e879733ad4b801a82814e",
+      "deploymentSourceSha": "92c51e6c69d7ed29ee6e879733ad4b801a82814e",
+      "taskStatus": "passed",
+      "readinessVerdict": null,
+      "startedAt": null,
+      "completedAt": null,
+      "changedPaths": [],
+      "reviewFindingIds": [],
+      "approvalReference": null,
+      "validation": [
+        {
+          "checkId": "helper-states",
+          "inputFingerprint": null,
+          "validatorSha256": null,
+          "exitCode": 0,
+          "verdict": "PASS",
+          "recordedAt": null,
+          "evidencePath": "agent-work/pilot-rollback-drill/results/B-2.md"
+        }
+      ],
+      "evidence": [
+        {
+          "path": "agent-work/pilot-rollback-drill/results/B-2.md",
+          "sha256": "9ac542089443ac0c77905190205a9f1ca65aa896455320a29482b1f7aa3a1aa6"
+        }
+      ],
+      "helper": {
+        "path": "scripts/agent-task.py",
+        "sha256": "52cf1893439688b4ce80ca1b08ea27aff3ca41b99fbbaad4a155878d0a7b8d5a"
+      }
+    },
+    {
+      "taskId": "R",
+      "attempt": 1,
+      "role": "release_readiness",
+      "model": null,
+      "branch": "pilot/rollback-drill-records",
+      "worktree": null,
+      "baseSha": "92c51e6c69d7ed29ee6e879733ad4b801a82814e",
+      "candidateSha": "92c51e6c69d7ed29ee6e879733ad4b801a82814e",
+      "deploymentSourceSha": "92c51e6c69d7ed29ee6e879733ad4b801a82814e",
+      "taskStatus": "complete",
+      "readinessVerdict": "PASS",
+      "startedAt": null,
+      "completedAt": null,
+      "changedPaths": [],
+      "reviewFindingIds": [],
+      "approvalReference": null,
+      "rollbackArtifact": {
+        "identity": "github-release-v0.1.0-alpha.12",
+        "provenance": "agent-work/pilot-rollback-drill/results/R-rollback-alpha12.md"
+      },
+      "frozenBatch": {
+        "deploymentSourceSha": "92c51e6c69d7ed29ee6e879733ad4b801a82814e",
+        "deployableArtifactSha256": "de299320ca829e53f990c034603da19a68f5468f30161a79248f21b2a766a715",
+        "deploymentConfiguration": [
+          {
+            "path": ".github/workflows/release.yml",
+            "sha256": "57c20477be82406b9053d9945d48ac53e5bad8a11068d38b72c2d25c21da9562"
+          },
+          {
+            "path": "agent-work/pilot-rollback-drill/results/R-dispatch-inputs.json",
+            "sha256": "86645eea0405b13dd74f149bb7053840c80ca8dd0e445189c0a20fc73e56be66"
+          },
+          {
+            "path": "agent-work/pilot-rollback-drill/results/R-expected-checksum.txt",
+            "sha256": "343640f30ba7c0ed44c8551d04b3ff59fee886fabac5cd1eb90ac52d974d9a64"
+          },
+          {
+            "path": "agent-work/pilot-rollback-drill/results/R-expected-checksum-INJECTED.txt",
+            "sha256": "2bf2e3e7351419bb08bd271454b8596291a7c7c0c7e3b10e01e4d917ef43f1f0"
+          },
+          {
+            "path": "agent-work/pilot-rollback-drill/results/R-settings.json",
+            "sha256": "fe60412dcc2da0fc35a88db6580f5a15b016b3216a86e1a8b6a68b899696f3ca"
+          }
+        ],
+        "validators": [
+          {
+            "path": "scripts/validate-repository.sh",
+            "sha256": "45eba69bf41f17ca4d1ea646e4d4bc8e3bcd1cf407a8ae3b698effe1032a2ebe"
+          },
+          {
+            "path": "scripts/check-release-version.sh",
+            "sha256": "939911f6527179a3171d5e1f1db222b37af2d477ab8d1d396a9ce74426a8c075"
+          },
+          {
+            "path": "scripts/agent-task.py",
+            "sha256": "52cf1893439688b4ce80ca1b08ea27aff3ca41b99fbbaad4a155878d0a7b8d5a"
+          },
+          {
+            "path": "scripts/tests/test_agent_workflow.py",
+            "sha256": "97f29540a3b245bd132a23d8799a37e5a25139c04761f995e0947bba4368c337"
+          }
+        ],
+        "rollbackArtifact": {
+          "identity": "github-release-v0.1.0-alpha.12",
+          "provenance": "agent-work/pilot-rollback-drill/results/R-rollback-alpha12.md"
+        },
+        "installedScripts": [],
+        "deploymentTargets": [
+          {
+            "destination": "https://github.com/saxton-network/workflow/releases/tag/v0.0.0-drill.1",
+            "mode": null
+          },
+          {
+            "destination": "https://github.com/saxton-network/workflow/releases/download/v0.0.0-drill.1/workflow-v0.0.0-drill.1.zip",
+            "mode": null
+          },
+          {
+            "destination": "https://github.com/saxton-network/workflow/releases/download/v0.0.0-drill.1/workflow-v0.0.0-drill.1.zip.sha256",
+            "mode": null
+          }
+        ]
+      },
+      "frozenBatchFingerprint": "f29928f7347068111db6495e702ae4c129f14aca8ff26b0453afe9992b65f52a",
+      "gitDivergence": {
+        "identical": true,
+        "authoritySha": "92c51e6c69d7ed29ee6e879733ad4b801a82814e",
+        "otherSha": "92c51e6c69d7ed29ee6e879733ad4b801a82814e"
+      },
+      "validation": [
+        {
+          "checkId": "validate-repository",
+          "inputFingerprint": null,
+          "validatorSha256": "45eba69bf41f17ca4d1ea646e4d4bc8e3bcd1cf407a8ae3b698effe1032a2ebe",
+          "exitCode": 0,
+          "verdict": "PASS",
+          "recordedAt": null,
+          "evidencePath": "agent-work/pilot-rollback-drill/results/R.md"
+        },
+        {
+          "checkId": "injected-fault-local-proof",
+          "inputFingerprint": "de299320ca829e53f990c034603da19a68f5468f30161a79248f21b2a766a715",
+          "validatorSha256": null,
+          "exitCode": 0,
+          "verdict": "PASS",
+          "recordedAt": null,
+          "evidencePath": "agent-work/pilot-rollback-drill/results/R.md"
+        }
+      ],
+      "evidence": [
+        {
+          "path": "agent-work/pilot-rollback-drill/results/R.md",
+          "sha256": "5a5e8fb916eb45211bc644c6d6bc54da4aeefa100a9de17706356a3f6e26dcbc"
+        },
+        {
+          "path": "agent-work/pilot-rollback-drill/results/R-baseline.json",
+          "sha256": "a1e0f1fbe22288b8e63a72a52d826f4c4f2c809e0057160208ad5a50b41bc854"
+        },
+        {
+          "path": "agent-work/pilot-rollback-drill/results/R-rollback-alpha12.md",
+          "sha256": "3f702030557ef51b08260916e61fe66ba07f4c840b3105999cce289ca1c0083c"
+        },
+        {
+          "path": "agent-work/pilot-rollback-drill/results/R-settings.json",
+          "sha256": "fe60412dcc2da0fc35a88db6580f5a15b016b3216a86e1a8b6a68b899696f3ca"
+        },
+        {
+          "path": "agent-work/pilot-rollback-drill/results/R-dispatch-inputs.json",
+          "sha256": "86645eea0405b13dd74f149bb7053840c80ca8dd0e445189c0a20fc73e56be66"
+        },
+        {
+          "path": "agent-work/pilot-rollback-drill/results/R-expected-checksum.txt",
+          "sha256": "343640f30ba7c0ed44c8551d04b3ff59fee886fabac5cd1eb90ac52d974d9a64"
+        },
+        {
+          "path": "agent-work/pilot-rollback-drill/results/R-expected-checksum-INJECTED.txt",
+          "sha256": "2bf2e3e7351419bb08bd271454b8596291a7c7c0c7e3b10e01e4d917ef43f1f0"
+        }
+      ],
+      "helper": {
+        "path": "scripts/agent-task.py",
+        "sha256": "52cf1893439688b4ce80ca1b08ea27aff3ca41b99fbbaad4a155878d0a7b8d5a"
+      }
+    },
+    {
+      "taskId": "J",
+      "attempt": 1,
+      "role": "live_deployment",
+      "model": null,
+      "branch": "pilot/rollback-drill-records",
+      "worktree": null,
+      "baseSha": "92c51e6c69d7ed29ee6e879733ad4b801a82814e",
+      "candidateSha": "92c51e6c69d7ed29ee6e879733ad4b801a82814e",
+      "deploymentSourceSha": "92c51e6c69d7ed29ee6e879733ad4b801a82814e",
+      "taskStatus": "in_progress",
+      "readinessVerdict": null,
+      "startedAt": null,
+      "completedAt": null,
+      "changedPaths": [],
+      "reviewFindingIds": [],
+      "approvalReference": "agent-work/pilot-rollback-drill/results/J-approval.md",
+      "frozenBatchFingerprint": "f29928f7347068111db6495e702ae4c129f14aca8ff26b0453afe9992b65f52a",
+      "validation": [],
+      "evidence": [
+        {
+          "path": "agent-work/pilot-rollback-drill/results/J-approval.md",
+          "sha256": "16edf7c971ac3bd83f463b97a3796ee40cbd88318290d76af5a1bc894127bfc9"
+        }
+      ],
+      "helper": {
+        "path": "scripts/agent-task.py",
+        "sha256": "52cf1893439688b4ce80ca1b08ea27aff3ca41b99fbbaad4a155878d0a7b8d5a"
+      }
+    },
+    {
+      "taskId": "J",
+      "attempt": 1,
+      "role": "live_deployment",
+      "model": null,
+      "branch": "pilot/rollback-drill-records",
+      "worktree": null,
+      "baseSha": "92c51e6c69d7ed29ee6e879733ad4b801a82814e",
+      "candidateSha": "92c51e6c69d7ed29ee6e879733ad4b801a82814e",
+      "deploymentSourceSha": "92c51e6c69d7ed29ee6e879733ad4b801a82814e",
+      "taskStatus": "failed",
+      "readinessVerdict": null,
+      "startedAt": "2026-10-13T09:09:51Z",
+      "completedAt": "2026-10-13T09:10:35Z",
+      "changedPaths": [],
+      "reviewFindingIds": [],
+      "approvalReference": "agent-work/pilot-rollback-drill/results/J-approval.md",
+      "frozenBatchFingerprint": "f29928f7347068111db6495e702ae4c129f14aca8ff26b0453afe9992b65f52a",
+      "runtimeAcceptance": "FAIL",
+      "drill": true,
+      "expectedFailureSignatureMatched": true,
+      "validation": [
+        {
+          "checkId": "runtime-acceptance-check-4-injected",
+          "inputFingerprint": "f29928f7347068111db6495e702ae4c129f14aca8ff26b0453afe9992b65f52a",
+          "validatorSha256": null,
+          "exitCode": 1,
+          "verdict": "FAIL",
+          "recordedAt": null,
+          "evidencePath": "agent-work/pilot-rollback-drill/results/J.md"
+        }
+      ],
+      "evidence": [
+        {
+          "path": "agent-work/pilot-rollback-drill/results/J.md",
+          "sha256": "c1e8de60029e8ffbb68d5246fb4fe68b92f58b2585cbf5baaa55a3537ec72d7a"
+        },
+        {
+          "path": "agent-work/pilot-rollback-drill/results/J-approval.md",
+          "sha256": "16edf7c971ac3bd83f463b97a3796ee40cbd88318290d76af5a1bc894127bfc9"
+        }
+      ],
+      "helper": {
+        "path": "scripts/agent-task.py",
+        "sha256": "52cf1893439688b4ce80ca1b08ea27aff3ca41b99fbbaad4a155878d0a7b8d5a"
+      }
+    },
+    {
+      "taskId": "V",
+      "attempt": 1,
+      "role": "other",
+      "model": null,
+      "branch": "pilot/rollback-drill-records",
+      "worktree": null,
+      "baseSha": "92c51e6c69d7ed29ee6e879733ad4b801a82814e",
+      "candidateSha": null,
+      "deploymentSourceSha": "92c51e6c69d7ed29ee6e879733ad4b801a82814e",
+      "taskStatus": "complete",
+      "readinessVerdict": null,
+      "startedAt": "2026-10-13T09:10:35Z",
+      "completedAt": "2026-10-13T09:19:53Z",
+      "changedPaths": [],
+      "reviewFindingIds": [],
+      "approvalReference": null,
+      "drill": true,
+      "drillVerdict": "PASS",
+      "validation": [
+        {
+          "checkId": "rollback-exact-baseline",
+          "inputFingerprint": null,
+          "validatorSha256": null,
+          "exitCode": 0,
+          "verdict": "PASS",
+          "recordedAt": null,
+          "evidencePath": "agent-work/pilot-rollback-drill/results/V.md"
+        }
+      ],
+      "evidence": [
+        {
+          "path": "agent-work/pilot-rollback-drill/results/V.md",
+          "sha256": "d75024d2c194e4370c12d52bfad999ba6186579c35286023fb5b9de3d4539555"
+        },
+        {
+          "path": "docs/PILOT-HISTORY.md",
+          "sha256": "796e86e542dc8b2ac3eda36b0160fbdac46fe8a0dfdefd3927915937971ea41c"
+        }
+      ],
+      "helper": {
+        "path": "scripts/agent-task.py",
+        "sha256": "52cf1893439688b4ce80ca1b08ea27aff3ca41b99fbbaad4a155878d0a7b8d5a"
+      }
+    }
+  ]
+}
