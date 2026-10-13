@@ -976,6 +976,14 @@ class WorkflowV3Tests(unittest.TestCase):
         self.assertEqual(self.gate(manifest, evidence), "GATED")
 
         evidence = self.evidence()
+        evidence["records"][2]["frozenBatch"]["deploymentConfiguration"] += [
+            {"path": "C:\\App\\Settings.json", "sha256": "3" * 64},
+            {"path": "C:\\app\\settings.json", "sha256": "4" * 64},
+        ]
+        self.refingerprint(evidence)
+        self.assertEqual(self.gate(manifest, evidence), "GATED")
+
+        evidence = self.evidence()
         batch = evidence["records"][2]["frozenBatch"]
         batch["installedScripts"].append({"path": batch["validators"][0]["path"], "sha256": "5" * 64})
         self.refingerprint(evidence)
@@ -1041,6 +1049,7 @@ class WorkflowV3Tests(unittest.TestCase):
         "https://[2001:db8::1]:8443/x",
         "https://xn--bcher-kva.example/app",
         "ssh://deploy-host/srv/app",
+        "ssh://web1:2222/srv/app",
         "s3://bucket/releases",
         "unix:///run/app.sock",
     )
@@ -1118,6 +1127,22 @@ class WorkflowV3Tests(unittest.TestCase):
         "host:./app",
         "unix:///run/%2e%2e/x",
         "unix:///run/app.sock/",
+        "unix://",
+        "ssh://web1:22/srv/app",
+        "sftp://web1:22/srv/app",
+        "rsync://web1:873/srv/app",
+        "git://web1:9418/repo",
+        "ssh://[::1/srv/app",
+        "ssh://[::1",
+        "https://[::1:8443/app",
+        "https://[::ffff:7f00:1]/app",
+        "https://0x7f000001/app",
+        "ssh://127.0.0.0x1/srv/app",
+        "c://srv/app",
+        "C:\\Users\\RUNNER~1\\AppData",
+        "\\\\server\\share\\NUL",
+        "\\\\server\\share\\app.",
+        "\\\\server\\RUNNER~1\\app",
     )
 
     def test_accepted_destination_formats(self) -> None:
@@ -1146,7 +1171,8 @@ class WorkflowV3Tests(unittest.TestCase):
             with self.subTest(accepted=path):
                 self.assertIsNone(agent_task.batch_path_problem(path))
         for path in ("./deploy/config", "deploy//config", "deploy/config/", "c:\\x\\y.json", "C:/x/y.json",
-                     "C:\\a\\NUL", "deploy/a b.conf", "deploy/caf\u00e9.conf", "deploy/[id].conf", "deploy/%41"):
+                     "C:\\a\\NUL", "deploy/a b.conf", "deploy/caf\u00e9.conf", "deploy/[id].conf", "deploy/%41",
+                     "~/.config/app/app.json", "~root/app.json", "C:\\Users\\RUNNER~1\\app.json"):
             with self.subTest(rejected=path):
                 self.assertIsInstance(agent_task.batch_path_problem(path), str)
 
@@ -1163,6 +1189,16 @@ class WorkflowV3Tests(unittest.TestCase):
             with self.subTest(changed=path):
                 self.assertEqual(agent_task.classify_divergence(**base, changed_paths=[path]), "unknown")
         self.assertEqual(agent_task.classify_divergence(**base, changed_paths=["docs/a-b_c.md"]), "known_additive")
+        # An unmatched bracket can never match an accepted path, so the pattern would protect nothing.
+        for pattern in ("deploy/[abc", "deploy/abc]", "deploy/[a]b]"):
+            with self.subTest(pattern=pattern):
+                self.assertIsInstance(agent_task.repo_path_problem(pattern, pattern=True), str)
+                self.assertEqual(
+                    agent_task.classify_divergence(**{**base, "deployment_input_paths": [pattern]},
+                                                   changed_paths=["deploy/a"]),
+                    "unknown",
+                )
+        self.assertIsNone(agent_task.repo_path_problem("deploy/[abc]/*.yml", pattern=True))
 
     def test_format_problems_are_reported(self) -> None:
         manifest = self.deploy_manifest()

@@ -48,10 +48,14 @@ SHA256 = re.compile(r"[0-9a-f]{64}\Z")
 SEGMENT = re.compile(r"[A-Za-z0-9._~-]+")
 GLOB_SEGMENT = re.compile(r"[A-Za-z0-9._~*?\[\]!-]+")
 WINDOWS_DRIVE_PATH = re.compile(r"[A-Z]:\\")
-URL_FORM = re.compile(r"([a-z][a-z0-9+.-]*)://([^/]*)(/.*)?")
+# A one-letter scheme would read as a drive (c://x is C:\\x), so schemes have at least two characters.
+URL_FORM = re.compile(r"([a-z][a-z0-9+.-]+)://([^/]*)(/.*)?")
 HOST_NAME = re.compile(r"[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*")
 IPV4 = re.compile(r"(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}")
-DEFAULT_PORTS = {"http": 80, "https": 443, "ws": 80, "wss": 443, "ftp": 21}
+DEFAULT_PORTS = {"http": 80, "https": 443, "ws": 80, "wss": 443, "ftp": 21,
+                 "ssh": 22, "sftp": 22, "rsync": 873, "git": 9418}
+HOST_REQUIRED_SCHEMES = {"http", "https", "ws", "wss", "ftp"}
+NUMERIC_LABEL = re.compile(r"\d+|0x[0-9a-f]*")
 WINDOWS_DEVICE_NAMES = {"CON", "PRN", "AUX", "NUL", *(f"{port}{n}" for port in ("COM", "LPT") for n in range(1, 10))}
 MAX_PATTERN_EXPANSIONS = 6
 
@@ -241,9 +245,13 @@ def _segments_problem(segments: list[str], *, windows: bool = False, glob: bool 
         if not allowed.fullmatch(segment):
             extra = ", *, ?, [, ], !" if glob else ""
             return f"segment {segment!r} uses characters other than letters, digits, ., _, -, ~{extra}"
-        # Windows drops a trailing dot and maps NUL, COM1 and the like to devices in every folder.
-        if windows and (segment.endswith(".") or segment.split(".")[0].upper() in WINDOWS_DEVICE_NAMES):
-            return f"Windows segment {segment!r} ends in . or names a device"
+        if glob and re.search(r"[\[\]]", re.sub(r"\[[^\]]*\]", "", segment)):
+            return f"segment {segment!r} has an unmatched [ or ]"
+        # Windows drops a trailing dot, maps NUL, COM1 and the like to devices in every folder, and
+        # reads NAME~1 as an 8.3 short name for a longer one.
+        if windows and (segment.endswith(".") or "~" in segment or
+                        segment.split(".")[0].upper() in WINDOWS_DEVICE_NAMES):
+            return f"Windows segment {segment!r} ends in ., contains ~, or names a device"
     return None
 
 
@@ -264,6 +272,9 @@ def batch_path_problem(path: object) -> str | None:
         return _segments_problem(path[3:].split("\\"), windows=True)
     if isinstance(path, str) and path.startswith("/"):
         return _segments_problem(path[1:].split("/"))
+    if isinstance(path, str) and path.startswith("~"):
+        # A shell would expand ~ or ~user to a home directory, so ~/.config is not repository-relative.
+        return "starts with ~, which reads as a home directory"
     return repo_path_problem(path)
 
 
@@ -291,13 +302,15 @@ def destination_problem(destination: object) -> str | None:
         if problem:
             return f"URL path {problem}"
     if not authority:
-        if scheme in DEFAULT_PORTS:
+        if scheme in HOST_REQUIRED_SCHEMES:
             return f"{scheme}: URL needs a host"
         return "URL without a host needs a path" if path is None else None
     if "@" in authority:
         return "URL has user info"
     if authority.startswith("["):
-        host, _bracket, after = authority[1:].partition("]")
+        host, bracket, after = authority[1:].partition("]")
+        if not bracket:
+            return "URL host is missing the closing ] of its IPv6 address"
         port = after[1:] if after.startswith(":") else None
         if after and port is None:
             return "URL has text after the IPv6 address"
@@ -312,7 +325,8 @@ def destination_problem(destination: object) -> str | None:
         port = port if colon else None
         if not HOST_NAME.fullmatch(host):
             return "URL host must be lowercase letters, digits, - and ."
-        if host.rsplit(".", 1)[-1].isdigit() and not IPV4.fullmatch(host):
+        if NUMERIC_LABEL.fullmatch(host.rsplit(".", 1)[-1]) and not IPV4.fullmatch(host):
+            # Parsers read 127.1, 2130706433 and 0x7f000001 as 127.0.0.1.
             return "numeric URL host must be a dotted-quad IPv4 address"
     if port is not None:
         if not port.isascii() or not port.isdigit() or port.startswith("0") or len(port) > 5 or int(port) > 65535:
