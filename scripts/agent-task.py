@@ -52,8 +52,8 @@ WINDOWS_DRIVE_PATH = re.compile(r"[A-Z]:\\")
 URL_FORM = re.compile(r"([a-z][a-z0-9+.-]+)://([^/]*)(/.*)?")
 HOST_NAME = re.compile(r"[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*")
 IPV4 = re.compile(r"(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}")
-DEFAULT_PORTS = {"http": 80, "https": 443, "ws": 80, "wss": 443, "ftp": 21,
-                 "ssh": 22, "sftp": 22, "rsync": 873, "git": 9418}
+DEFAULT_PORTS = {"http": 80, "https": 443, "ws": 80, "wss": 443, "ftp": 21, "ftps": 990,
+                 "ssh": 22, "sftp": 22, "scp": 22, "rsync": 873, "git": 9418, "smb": 445}
 HOST_REQUIRED_SCHEMES = {"http", "https", "ws", "wss", "ftp"}
 NUMERIC_LABEL = re.compile(r"\d+|0x[0-9a-f]*")
 WINDOWS_DEVICE_NAMES = {"CON", "PRN", "AUX", "NUL", *(f"{port}{n}" for port in ("COM", "LPT") for n in range(1, 10))}
@@ -234,6 +234,30 @@ def batch_fingerprint(batch: dict) -> str:
     return hashlib.sha256(_canonical_batch(batch)).hexdigest()
 
 
+def _brackets_close(segment: str) -> bool:
+    """True when every [ opens a class that fnmatch closes and no ] stands alone.
+
+    As in fnmatch, a class may start with ! and then ] as a member, and ends at the next ]; so [] and [!]
+    never close, while []a] and [!]a] are classes.
+    """
+    index = 0
+    while index < len(segment):
+        if segment[index] == "]":
+            return False
+        if segment[index] == "[":
+            index += 1
+            if segment[index:index + 1] == "!":
+                index += 1
+            if segment[index:index + 1] == "]":
+                index += 1
+            close = segment.find("]", index)
+            if close < 0:
+                return False
+            index = close
+        index += 1
+    return True
+
+
 def _segments_problem(segments: list[str], *, windows: bool = False, glob: bool = False) -> str | None:
     """Why these path segments are not in the accepted format, or None."""
     allowed = GLOB_SEGMENT if glob else SEGMENT
@@ -245,7 +269,7 @@ def _segments_problem(segments: list[str], *, windows: bool = False, glob: bool 
         if not allowed.fullmatch(segment):
             extra = ", *, ?, [, ], !" if glob else ""
             return f"segment {segment!r} uses characters other than letters, digits, ., _, -, ~{extra}"
-        if glob and re.search(r"[\[\]]", re.sub(r"\[[^\]]*\]", "", segment)):
+        if glob and not _brackets_close(segment):
             return f"segment {segment!r} has an unmatched [ or ]"
         # Windows drops a trailing dot, maps NUL, COM1 and the like to devices in every folder, and
         # reads NAME~1 as an 8.3 short name for a longer one.
