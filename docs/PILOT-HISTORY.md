@@ -108,7 +108,7 @@ Follow-up, in the next change after Pilot 4:
 
 ## Pilot 5: first adopter project, `saxton-network/site`
 
-Goal: run Workflow end to end in a new repository, built from scratch by agents that had not seen Workflow before, with a real live target. The project is a one-page GitHub Pages landing page listing the organisation's public repositories. It ran two workflows:
+Goal: run Workflow end to end in a new repository with a real live target. The repository was adopted by a fresh builder that had not seen Workflow before; the two workflows were then run by a coordinator and reviewers that knew it. The project is a one-page GitHub Pages landing page listing the organisation's public repositories. It ran two workflows:
 
 - `site-launch`, the success path;
 - `site-update-drill`, a deliberate failure and rollback.
@@ -132,7 +132,7 @@ What happened:
 - Both workflows' records were reviewed independently and landed on the site's `main` with the owner's go-ahead (site PRs #2 and #3). Each landing was a local `--no-ff` merge pushed as a fast-forward, and each touched only its workflow directory.
 - The scaffold review of the drill caught that a failed J with no v2 deploy would still make V ready, which would trigger a needless live dispatch. The contract was fixed before anything was frozen.
 
-Findings, recorded for a later batch:
+Findings, recorded for a later batch. Unless marked otherwise, each can be checked against the site records.
 
 1. **Adoption docs.** The 21 entries in the site's `ADOPTION.md` "Ambiguities". The main ones:
    - which files are "the workflow control files";
@@ -143,22 +143,30 @@ Findings, recorded for a later batch:
    - no guidance for GitHub Pages (artifact, rollback, target, and the no-trailing-separator destination rule);
    - settings changes as live changes;
    - undocumented Python 3.11+;
-   - references to files an adopter does not get.
-2. **Approval reference.** The docs say to "bind the user's explicit y/n approval reference" to the fingerprint, but do not say what that reference is when approval is given in chat. These pilots used a coordinator-written `J-approval.md`, which the coordinator attests itself.
-3. **Repository creation.** The session's GitHub connection was refused permission to create a repository in the organisation. The owner created it, and GitHub added a starter commit that does not use the mandated identity. The docs assume the coordinator can create the repository.
-4. **Reviewer model.** After a session restart, resumed reviewer agents came back on the builder's model. Two early reviews were therefore same-model; they are recorded as deviations. From then on, each review used a fresh agent pinned to a different model, and its transcript's model field was checked.
-5. **Repair rounds.** A second repair round needs the repair task reset to `pending` by hand before the helper lists it again. This is not documented.
-6. **Review convergence.** An allow-list check of free-form HTML kept finding new encodings to cover. The threat model's exclusion of deliberate tampering by a trusted author is what ended the loop; the docs could say so for guard-style validators.
-7. **Plan drift.** The plan's readiness section said an unauthenticated GET proves a repository public. The session proxy returns 403 there, so the task files switched to an authenticated read of the `private`/`visibility` field. Plan text and task files drifted apart; the drift was disclosed, not fixed.
-8. **Pages deployment labels.** `actions/deploy-pages` labels each deployment with `GITHUB_SHA`, which is `main`'s tip on a dispatch, not the deployed input. The v2 deploy and the v1 rollback are both labelled with the v2 commit. Only the job log's `DEPLOY HEAD` line and the live bytes show what is served.
-9. **Shallow clones.** A first-parent ancestry proof run in the session's shallow clone could not see history and failed. A fresh full fetch was needed.
-10. **Coordinator shell errors**, both caught with no live effect:
-    - A chained command continued after a failed `git merge` and ran a push with an unset SHA variable, which is the delete refspec `:refs/heads/main`. `main` was unchanged.
-    - A first-parent check used `grep -q` after a pipe under `set -o pipefail`. It returned 141 (SIGPIPE), printed nothing, and the push on the next line was not gated on it. The check would have passed and was re-run straight after.
+   - references to files an adopter does not get;
+   - a content rule against naming people or emails conflicting with the mandated commit identity and trailers (entry 17).
 
-    Gates should be explicit `if ! …; then exit 1; fi` steps before the push, and a push should name a literal, asserted SHA.
-11. **Gating V.** The helper makes V ready on J's status alone, whether or not a dispatch happened. The contract now carries that distinction; the helper does not.
-12. **Helper output.** `agent-task.py <id> --all | head` prints a `BrokenPipeError` traceback.
+   *Suggested action:* an adopter's guide that lists the files to copy, provides a template `validate.sh`, says how to write a local threat model, and covers Pages-style targets.
+2. **Approval reference.** The docs say to "bind the user's explicit y/n approval reference" to the fingerprint, but do not say what that reference is when approval is given in chat. These pilots used a coordinator-written `J-approval.md`, which the coordinator attests itself. *Suggested action:* define the approval record's required content (source, fingerprint, each approved dispatch with its input hash, and conditions) and say plainly that it is self-attested when approval is given in chat.
+3. **Repository creation.** The session's GitHub connection was refused permission to create a repository in the organisation. The owner created it, and GitHub added a starter commit that does not use the mandated identity. *Suggested action:* list repository creation as a possible owner step, and say how a pre-existing starter commit is handled.
+4. **Reviewer model.** After a session restart, resumed reviewer agents came back on the builder's model. Two early reviews were therefore same-model; they are recorded as deviations. From then on, each review used a fresh agent pinned to a different model, and its transcript's model field was checked. *Suggested action:* require reviewers to record the model observed in their transcript, and say that a resumed reviewer must be re-checked.
+5. **Repair rounds.** A second repair round needs the repair task reset to `pending` by hand before the helper lists it again. This is not documented. *Suggested action:* document the reset in `COORDINATOR.md`, or have the helper offer the repair task again whenever the review is `findings`.
+6. **Review convergence.** An allow-list check of free-form HTML kept finding new encodings to cover. The threat model's exclusion of deliberate tampering by a trusted author is what ended the loop. *Suggested action:* state that stopping rule for guard-style validators in the threat-model guidance.
+7. **Plan drift.** The plan's readiness section said an unauthenticated GET proves a repository public. The session proxy returns 403 there, so the task files switched to an authenticated read of the `private`/`visibility` field. Plan text and task files drifted apart; the drift was disclosed, not fixed. *Suggested action:* say which document governs when the plan and a task file disagree, and require the drift to be recorded in the plan.
+8. **Pages deployment labels.** `actions/deploy-pages` labels each deployment with `GITHUB_SHA`, which is `main`'s tip on a dispatch, not the deployed input. The v2 deploy and the v1 rollback are both labelled with the v2 commit. Only the job log's `DEPLOY HEAD` line and the live bytes show what is served. *Suggested action:* note in `docs/RELEASING.md`-style guidance that deployment labels must not be used as evidence of the live commit.
+9. **Shallow clones.** A first-parent ancestry proof run in the session's shallow clone could not see history and failed. A fresh full fetch was needed. *Suggested action:* say that ancestry proofs need a non-shallow clone (`git rev-parse --is-shallow-repository` is `false`).
+10. **Coordinator shell errors**, both with no live effect:
+    - *Reported by the coordinator, not in the site records* (it happened while landing the `site-launch` records, which are reported outside the records). A chained command continued after a failed `git merge` and ran `git push origin $M:refs/heads/main` with `$M` unset, which is the delete refspec `:refs/heads/main`. The output's last line was "Everything up-to-date", and `git ls-remote` showed `main` unchanged straight after. Why the delete did not happen was not established; the guard was luck, not design.
+    - *In the site records* (`agent-work/site-update-drill/results/P.md`). A first-parent check used `grep -q` after a pipe under `set -o pipefail`. It returned 141 (SIGPIPE), printed nothing, and the push on the next line was not gated on it. The check would have passed and was re-run straight after.
+
+    *Suggested action:* gates should be explicit `if ! …; then exit 1; fi` steps before the push, and a push should name a literal, asserted SHA. Avoid `grep -q` after a pipe under `pipefail`.
+11. **Gating V, and other contract gaps.** The helper makes V ready on J's status alone, whether or not a dispatch happened. The drill's scaffold review also found that the contract did not say:
+    - what to do when a dispatch call gets no `204` or no run appears (S3);
+    - what V's status is when no rollback is needed (D1);
+    - what `J-approval.md` must contain (S4).
+
+    All of these are now in the drill's contract; neither the helper nor the spec carries them. *Suggested action:* add them to the spec's live-task and rollback guidance, and consider recording on the live attempt whether a dispatch happened.
+12. **Helper output.** *Not in the site records.* `python3 scripts/agent-task.py <id> --all | head -1` prints a `BrokenPipeError` traceback; this reproduces on Workflow's own example workflows. *Suggested action:* handle `BrokenPipeError` in the helper's output path.
 
 ## Current maturity
 
@@ -168,7 +176,7 @@ The repository-only path has passed a controlled pilot. The deployment path has 
 - Pilot 4: a rollback drill, with an owner-performed release and tag deletion;
 - Pilot 5: two in a first adopter project, the GitHub Pages success path and a Pages rollback drill (a coordinator redeploy of the previous commit).
 
-Pilot 5 is the first use by a newcomer in another repository. It exercised the fixes for Pilot 4's findings: J stayed `GATED` after the failed attempt, and records landed after a verified rollback. The tag-only and draft rollback rows, run cancellation, and frozen-batch invalidation have still not been exercised live.
+Pilot 5 is the first adoption by a newcomer in another repository. It exercised the fixes for Pilot 4's findings: J stayed `GATED` after the failed attempt, and records landed after a verified rollback. The tag-only and draft rollback rows, run cancellation, frozen-batch invalidation and a refused retry have still not been exercised live; for the retry boundary, only the helper's `GATED` label was observed.
 
 The framework should still be treated as experimental: four live workflows are not broad coverage, and Pilot 5's adoption findings show that the docs assume knowledge a newcomer does not have.
 
