@@ -185,7 +185,18 @@ Follow-up, in the next change after Pilot 5:
   - Ancestry proofs need a non-shallow clone.
 - **Finding 12:** the helper exits quietly with status 1 when its reader closes the pipe early, and a test covers it.
 - **Findings 3 and 8** are covered in `docs/ADOPTING.md`.
-- **Still open:** finding 6 for the threat-model document (`docs/ADOPTING.md` section 4 states the stopping rule for adopters), finding 7, and finding 11, the helper and spec carrying the drill's dispatch and no-rollback rules.
+- **Left for the next change:** finding 6 for the threat-model document (`docs/ADOPTING.md` section 4 states the stopping rule for adopters), finding 7, and finding 11, the helper and spec carrying the drill's dispatch and no-rollback rules.
+
+The change after that closes Pilot 5's remaining findings:
+
+- **Finding 6:** `docs/THREAT-MODEL.md` "How reviews use this" gains a guard-validator rule. A finding that needs deliberately crafted content to slip past a guard is out of scope, recorded as a Low and batched. A guard that misses an ordinary way of writing the forbidden content is fixed. This is an owner scope decision; the owner's go-ahead to merge that change is the approval.
+- **Finding 7:** `agent-work/WORKFLOW-SPEC.md` says the approved plan governs. A task file may make a check stricter, or swap in an equal or stronger proof, recorded as a dated plan clarification and checked by the scaffold reviewer. Weakening a check, widening scope or changing a live batch needs a revised plan and fresh approval.
+- **Finding 11:** `agent-work/WORKFLOW-SPEC.md` "Failed live attempts and drills" covers the drill's contract rules:
+  - a failed pre-dispatch recheck dispatches nothing and leaves the live task `in_progress`;
+  - a dispatch that errors, or whose run never appears, is never repeated;
+  - a failed attempt records `liveStateChanged`.
+
+  The helper keeps a task that requires the live task `failed` from being ready while the latest live-attempt record says `liveStateChanged: false`, and its task view says no rollback is needed. A test covers explicit false against true, null, absent and wrong-typed values, and a later attempt.
 
 ## Current maturity
 
