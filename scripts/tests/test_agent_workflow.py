@@ -418,6 +418,34 @@ class WorkflowV3Tests(unittest.TestCase):
                                     "frozenBatchFingerprint": evidence["records"][2]["frozenBatchFingerprint"]})
         self.assertEqual(self.gate(manifest, evidence), "READY")
 
+    def test_any_unsuccessful_attempt_closes_the_gate(self) -> None:
+        manifest = self.deploy_manifest()
+        # Realistic order: the approval record, then the attempt's outcome.
+        for outcome in ({"taskStatus": "failed"}, {"taskStatus": "FAILED"}, {"taskStatus": "cancelled"},
+                        {"taskStatus": "aborted"}, {"taskStatus": "skipped"}, {"taskStatus": "error"},
+                        {"taskStatus": "in_progress", "runtimeAcceptance": "FAIL"},
+                        {"taskStatus": "complete", "runtimeAcceptance": "FAIL"}):
+            evidence = self.evidence()
+            evidence["records"][3]["taskStatus"] = "in_progress"
+            evidence["records"].append({**copy.deepcopy(evidence["records"][3]), **outcome})
+            # A later record that claims success or asks again cannot reopen it.
+            for later in ({"taskStatus": "in_progress", "runtimeAcceptance": None},
+                          {"taskStatus": "complete", "runtimeAcceptance": "PASS"}):
+                trial = copy.deepcopy(evidence)
+                trial["records"].append({**copy.deepcopy(evidence["records"][3]), **later})
+                self.assertEqual(self.gate(manifest, trial), "GATED", (outcome, later))
+                manifest["status"]["J"] = "complete"
+                with tempfile.TemporaryDirectory() as directory:
+                    root = Path(directory)
+                    path = root / manifest["workflow"]["evidence_manifest"]
+                    path.parent.mkdir(parents=True)
+                    path.write_text(json.dumps(trial), encoding="utf-8")
+                    with patch.object(agent_task, "ROOT", root):
+                        self.assertFalse(agent_task.final_reconciliation_ready(manifest), (outcome, later))
+                        self.assertFalse(agent_task.task_ready("K", manifest), (outcome, later))
+                        self.assertEqual(agent_task.live_task_label("J", manifest), "GATED", (outcome, later))
+                manifest["status"]["J"] = "in_progress"
+
     def test_ready_gate_with_unmet_dependencies_is_gated(self) -> None:
         manifest = self.deploy_manifest()
         manifest["tasks"]["J"]["required_status"] = {"R": "passed"}

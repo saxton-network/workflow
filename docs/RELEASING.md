@@ -25,7 +25,7 @@ If a run fails after creating the tag but before publishing, the tag remains and
 
 ## Rolling back a release
 
-The release workflow cannot delete anything. A rollback is done by someone with write access on the GitHub website, one item at a time:
+The release workflow cannot delete anything. This procedure works only while GitHub's immutable-releases setting is off; an immutable release cannot be removed this way, so check the setting before publishing anything that may need rolling back. A rollback is done by someone with write access on the GitHub website, one item at a time:
 
 1. Delete the release.
 2. Then delete its tag on the Tags page.
@@ -33,7 +33,7 @@ The release workflow cannot delete anything. A rollback is done by someone with 
 Order and verification matter:
 
 - **Release only.** Deleting a release leaves its tag, and the tag's source archives stay downloadable.
-- **Tag first.** Deleting a tag first turns its release into a draft, which no longer lives at `/releases/tag/<tag>`. Delete the draft through its own link.
+- **Tag first.** Deleting a tag first is understood to turn its release into a draft, which no longer lives at `/releases/tag/<tag>`; delete the draft through its own link. This was not observed in the drill, which deleted the release first.
 - **Use the API to check.** While a tag exists, `/releases/tag/<tag>` still serves a plain tag page after its release is deleted. Verify each deletion through the API: the release by tag returns 404, the authenticated release list shows no release or draft with that tag, and `git ls-remote` shows no tag. Do not rely on the web page.
 - **Draft visibility.** Draft releases are visible only to accounts with write access. Record which identity read the release list.
 - **Final check.** Compare the full tag and release lists with a snapshot taken before publishing.

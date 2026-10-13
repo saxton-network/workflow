@@ -206,11 +206,11 @@ When a ready task declares a live-change/human gate:
 
 One approval covers only the stated milestone.
 
+Repository-only child-task dispatch and ordinary integration do not need repeated approvals when already authorized by the approved workflow.
+
 ## Durable review records
 
 An independent review that happens outside a workflow directory (for example, of an ordinary pull request) is recorded where it can be found later: one comment on the pull request before merge, giving the verdict, the findings and how each was resolved, and the reviewer's independence in words. Inside a workflow, the review's result file is the record.
-
-Repository-only child-task dispatch and ordinary integration do not need repeated approvals when already authorized by the approved workflow.
 
 ## Stop conditions
 
