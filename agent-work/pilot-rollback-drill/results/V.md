@@ -36,7 +36,7 @@ The two check-ins (`trig_01NRftaTTs4NTaSjLVqcZKWz`, `trig_019rjpjfjWYtXCLx2yGNG8
 
 ## Exposure
 
-The drill release was public from 09:10:16Z until the owner deleted it at about 09:19Z, and the tag for a few minutes longer. When the coordinator first read the release, before its own acceptance download, GitHub reported 0 downloads. Later downloads by others during the window cannot be ruled out.
+The drill release was public from 09:10:16Z until the owner deleted it at about 09:19Z. The tag was deleted moments later: it was gone by the 09:19:53Z verification. When the coordinator first read the release, before its own acceptance download, GitHub reported 0 downloads. Later downloads by others during the window cannot be ruled out.
 
 ## Records
 

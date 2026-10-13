@@ -420,11 +420,11 @@
       "evidence": [
         {
           "path": "agent-work/pilot-rollback-drill/results/V.md",
-          "sha256": "f6b1418a6acee3547188ce2e95b7de3dc25b8c5170316436046a6f69b0a9185e"
+          "sha256": "d75024d2c194e4370c12d52bfad999ba6186579c35286023fb5b9de3d4539555"
         },
         {
           "path": "docs/PILOT-HISTORY.md",
-          "sha256": "2d9ec4d3898182ad03075fbf385d075e4ee8a137620781f74c883803d819c80c"
+          "sha256": "796e86e542dc8b2ac3eda36b0160fbdac46fe8a0dfdefd3927915937971ea41c"
         }
       ],
       "helper": {

@@ -85,6 +85,7 @@ What happened:
 - Final verification: every tag and every release, with every asset digest, equals the readiness snapshot exactly. alpha.12 and `main` are unchanged.
 - **Drill verdict: PASS.**
 - The helper reported what the plan predicted at every step. After the failure that included `PREVIEW` for J again and an "eligible for approval preview" line from `--ready`.
+- Independent review of the drill contract before the live run caught five Low gaps, including that the Actions run must finish before the rollback reads the state. They were repaired before readiness.
 
 Findings, recorded for a later batch:
 
@@ -99,7 +100,7 @@ Findings, recorded for a later batch:
 
 ## Current maturity
 
-The repository-only path has passed a controlled pilot. The deployment path has passed one live pilot on its success path (Pilot 3) and one live rollback drill (Pilot 4). Run cancellation, the retry boundary, and frozen-batch invalidation have not been exercised live.
+The repository-only path has passed a controlled pilot. The deployment path has passed one live pilot on its success path (Pilot 3) and one live rollback drill (Pilot 4). The drill exercised only the published-release-plus-tag row of the rollback matrix, performed by the owner by hand. The tag-only and draft rows, run cancellation, the retry boundary, and frozen-batch invalidation have not been exercised live.
 
 The framework should still be treated as experimental: two live runs are not broad coverage, and Pilot 4's findings are open.
 
