@@ -57,7 +57,7 @@ Changing repository or hosting settings (turning on GitHub Pages, branch protect
 
 The copied `docs/THREAT-MODEL.md` covers Workflow's helper and gates, not your project. Say in `AGENTS.md` how project defects are classified. For example: a breach of a project content rule is always a defect to fix, reported as a site-rule violation, even though the copied threat model has no item for it. If you want a full project threat model, write your own and have the owner approve it.
 
-For guard-style validators, such as a check that a page contains nothing forbidden, decide in advance when a review loop stops. Pilot 5's HTML check kept finding new encodings to cover. The loop ended at the threat model's rule that deliberate tampering by a trusted author is out of scope.
+For guard-style validators, such as a check that a page contains nothing forbidden, decide in advance when a review loop stops. Pilot 5's HTML check kept finding new encodings to cover. The loop ended once the remaining findings needed deliberately crafted content; `docs/THREAT-MODEL.md` "Guard validators" now states that rule, including which odd spellings are still ordinary.
 
 ## 5. A repository gate
 
