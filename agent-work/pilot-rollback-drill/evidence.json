@@ -1,5 +1,45 @@
 {
   "workflowVersion": 3,
   "workflowId": "pilot-rollback-drill",
-  "records": []
+  "records": [
+    {
+      "taskId": "A",
+      "attempt": 1,
+      "role": "implementation",
+      "model": null,
+      "branch": "pilot/rollback-drill-records",
+      "worktree": null,
+      "baseSha": "92c51e6c69d7ed29ee6e879733ad4b801a82814e",
+      "candidateSha": "92c51e6c69d7ed29ee6e879733ad4b801a82814e",
+      "deploymentSourceSha": null,
+      "taskStatus": "complete",
+      "readinessVerdict": null,
+      "startedAt": null,
+      "completedAt": null,
+      "changedPaths": [],
+      "reviewFindingIds": [],
+      "approvalReference": null,
+      "validation": [
+        {
+          "checkId": "validate-ci",
+          "inputFingerprint": null,
+          "validatorSha256": null,
+          "exitCode": null,
+          "verdict": "PASS",
+          "recordedAt": null,
+          "evidencePath": "agent-work/pilot-rollback-drill/results/A.md"
+        }
+      ],
+      "evidence": [
+        {
+          "path": "agent-work/pilot-rollback-drill/results/A.md",
+          "sha256": "8b1ac51fab2cdf9facbabc5a046e287f3ad6f740fb5b4b14bbfa16e0becc69af"
+        }
+      ],
+      "helper": {
+        "path": "scripts/agent-task.py",
+        "sha256": "52cf1893439688b4ce80ca1b08ea27aff3ca41b99fbbaad4a155878d0a7b8d5a"
+      }
+    }
+  ]
 }
