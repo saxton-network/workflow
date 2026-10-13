@@ -1,0 +1,90 @@
+workflow_version = 3
+phase = "pilot-rollback-drill"
+title = "Pilot: rollback drill with an injected acceptance fault"
+phase_baseline = "92c51e6c69d7ed29ee6e879733ad4b801a82814e"
+plan = "agent-work/pilot-rollback-drill/PLAN.md"
+contract = "agent-work/pilot-rollback-drill/CONTRACT.md"
+
+[workflow]
+mode = "coordinator"
+plan_status = "approved"
+coordinator = "agent-work/COORDINATOR.md"
+auto_dispatch = true
+max_parallel_subagents = 1
+evidence_manifest = "agent-work/pilot-rollback-drill/evidence.json"
+human_gate_tasks = ["J"]
+terminal_task = "K"
+
+[status]
+A = "pending"
+B = "blocked"
+C = "conditional"
+R = "blocked"
+J = "blocked"
+V = "blocked"
+K = "blocked"
+
+[tasks.A]
+kind = "implementation"
+name = "Identify the candidate: the reviewed main head"
+file = "agent-work/pilot-rollback-drill/A-candidate.md"
+branch = "pilot/rollback-drill-records"
+depends_on = []
+
+[tasks.B]
+kind = "independent_review"
+name = "Review the candidate and the drill contract"
+file = "agent-work/pilot-rollback-drill/B-review.md"
+branch = "pilot/rollback-drill-records"
+depends_on = ["A"]
+required_status = { A = "complete" }
+rerun_after = "C"
+
+[tasks.C]
+kind = "repair"
+name = "Repair review findings in the scaffold or contract"
+file = "agent-work/pilot-rollback-drill/C-repair.md"
+branch = "pilot/rollback-drill-records"
+depends_on = ["B"]
+required_status = { B = "findings" }
+conditional = "review_findings_exist"
+
+[tasks.R]
+kind = "release_readiness"
+name = "Prove readiness, prove the injected fault locally, freeze the batch"
+file = "agent-work/pilot-rollback-drill/R-readiness.md"
+branch = "pilot/rollback-drill-records"
+depends_on = ["B"]
+required_status = { B = "passed" }
+
+[tasks.J]
+kind = "live_deployment"
+name = "Publish the drill release after owner approval; expect the injected failure and stop"
+file = "agent-work/pilot-rollback-drill/J-live.md"
+branch = "pilot/rollback-drill-records"
+depends_on = ["R"]
+human_gate = "live-change-approval"
+
+[tasks.V]
+kind = "other"
+name = "Roll back, verify the exact baseline, and land the records"
+file = "agent-work/pilot-rollback-drill/V-rollback.md"
+branch = "pilot/rollback-drill-records"
+depends_on = ["J"]
+required_status = { J = "failed" }
+
+[tasks.K]
+kind = "final_reconciliation"
+name = "Final reconciliation (never ready in this drill)"
+file = "agent-work/pilot-rollback-drill/K-reconcile.md"
+branch = "pilot/rollback-drill-records"
+depends_on = ["J"]
+
+[deployment]
+implementation_tasks = ["A"]
+review_task = "B"
+authority_remote = "origin"
+authority_ref = "refs/heads/main"
+readiness_task = "R"
+live_task = "J"
+final_reconciliation_task = "K"
