@@ -348,9 +348,12 @@ class WorkflowV3Tests(unittest.TestCase):
             self.assertEqual(label, "GATED")
             self.assertIn("Live gate: GATED", view)
             self.assertIn("no runtime acceptance PASS", view)
-        # Without any live record, a complete status still never reopens the preview.
-        label, _view = shown(self.evidence(approved=False))
-        self.assertEqual(label, "GATED")
+        # Without any live record, a complete or passed status still never reopens the preview.
+        for status in ("complete", "passed"):
+            manifest["status"]["J"] = status
+            label, view = shown(self.evidence(approved=False))
+            self.assertEqual(label, "GATED", status)
+            self.assertIn(f"Its status is {status}, but no runtime acceptance PASS", view)
 
     def live_view(self, manifest: dict, evidence: dict) -> tuple[str, str, str]:
         """The live task's --all label, its task view, and the --ready listing."""
