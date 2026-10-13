@@ -1,0 +1,91 @@
+workflow_version = 3
+phase = "pilot-alpha11"
+title = "Pilot: release v0.1.0-alpha.11 through the Workflow v3 deployment graph"
+phase_baseline = "b2316d116d09d91788b9b653a126cb3edd702281"
+plan = "agent-work/pilot-alpha11/PLAN.md"
+contract = "agent-work/pilot-alpha11/CONTRACT.md"
+
+[workflow]
+mode = "coordinator"
+plan_status = "approved"
+coordinator = "agent-work/COORDINATOR.md"
+auto_dispatch = true
+max_parallel_subagents = 1
+evidence_manifest = "agent-work/pilot-alpha11/evidence.json"
+human_gate_tasks = ["J"]
+terminal_task = "K"
+
+[status]
+A = "complete"
+B = "passed"
+C = "conditional"
+P = "complete"
+R = "complete"
+J = "complete"
+K = "complete"
+
+[tasks.A]
+kind = "implementation"
+name = "Fix the three Low findings from the review of PR #12"
+file = "agent-work/pilot-alpha11/A-implementation.md"
+branch = "pilot/alpha11-impl"
+depends_on = []
+
+[tasks.B]
+kind = "independent_review"
+name = "Review the exact candidate against the threat model"
+file = "agent-work/pilot-alpha11/B-review.md"
+branch = "pilot/alpha11-records"
+depends_on = ["A"]
+required_status = { A = "complete" }
+rerun_after = "C"
+
+[tasks.C]
+kind = "repair"
+name = "Repair review findings"
+file = "agent-work/pilot-alpha11/C-repair.md"
+branch = "pilot/alpha11-fix"
+depends_on = ["B"]
+required_status = { B = "findings" }
+conditional = "review_findings_exist"
+
+[tasks.P]
+kind = "authority_promotion"
+name = "Fast-forward main to the exact reviewed commit"
+file = "agent-work/pilot-alpha11/P-promotion.md"
+branch = "main"
+depends_on = ["B"]
+required_status = { B = "passed" }
+
+[tasks.R]
+kind = "release_readiness"
+name = "Prove release readiness and freeze the batch"
+file = "agent-work/pilot-alpha11/R-readiness.md"
+branch = "pilot/alpha11-records"
+depends_on = ["B", "P"]
+required_status = { B = "passed" }
+
+[tasks.J]
+kind = "live_deployment"
+name = "Publish v0.1.0-alpha.11 after owner approval and accept it at runtime"
+file = "agent-work/pilot-alpha11/J-live.md"
+branch = "pilot/alpha11-records"
+depends_on = ["R"]
+human_gate = "live-change-approval"
+
+[tasks.K]
+kind = "final_reconciliation"
+name = "Reconcile refs and release, and land the run's records"
+file = "agent-work/pilot-alpha11/K-reconcile.md"
+branch = "pilot/alpha11-records"
+depends_on = ["J"]
+
+[deployment]
+implementation_tasks = ["A"]
+review_task = "B"
+authority_task = "P"
+authority_remote = "origin"
+authority_ref = "refs/heads/main"
+readiness_task = "R"
+live_task = "J"
+final_reconciliation_task = "K"

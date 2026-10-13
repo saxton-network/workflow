@@ -1,0 +1,33 @@
+{
+  "recordedAt": "2026-10-13",
+  "mainSha": "d568c5f18986ea122018bde2d1badb257346dd92",
+  "immutableReleases": {"enabled": false, "enforced_by_owner": false},
+  "tags": {
+    "v0.1.0-alpha.1": "a4cd8cf5008cafd3fdc2a1b864df56f89729267a",
+    "v0.1.0-alpha.2": "36f726b26229ef1a88814f34d459d4655404d8d0",
+    "v0.1.0-alpha.3": "73e699c1454f8b3be0af40d1d8816412755a1327",
+    "v0.1.0-alpha.4": "c5ef4b8b478e17458143c2878992e7b7fc090ab0",
+    "v0.1.0-alpha.5": "02d4efad4099447ca6b2e8ef506c1efd19ba53fb",
+    "v0.1.0-alpha.6": "513d50470f490eb8d064cf20fda960c0277365c4",
+    "v0.1.0-alpha.7": "4a7e41839687e205f4706f846ba0204bec4976e3",
+    "v0.1.0-alpha.8": "b2808447f4b2684a52a4c4046cfe4852df58f440",
+    "v0.1.0-alpha.9": "329f5ffb40ef16d7537f2ee1239fd24868fea3ba",
+    "v0.1.0-alpha.10": "b2316d116d09d91788b9b653a126cb3edd702281"
+  },
+  "releases": [
+    {"id": 411170622, "tag": "v0.1.0-alpha.10", "prerelease": true, "draft": false, "publishedAt": "2026-10-13T02:00:45Z"},
+    {"id": 411029773, "tag": "v0.1.0-alpha.9", "prerelease": true, "draft": false, "publishedAt": "2026-10-12T22:01:14Z"},
+    {"id": 411022355, "tag": "v0.1.0-alpha.8", "prerelease": true, "draft": false, "publishedAt": "2026-10-12T21:48:28Z"},
+    {"id": 411014865, "tag": "v0.1.0-alpha.7", "prerelease": true, "draft": false, "publishedAt": "2026-10-12T21:35:40Z"},
+    {"id": 411000521, "tag": "v0.1.0-alpha.6", "prerelease": true, "draft": false, "publishedAt": "2026-10-12T21:13:10Z"},
+    {"id": 410987944, "tag": "v0.1.0-alpha.5", "prerelease": true, "draft": false, "publishedAt": "2026-10-12T20:52:31Z"},
+    {"id": 410973940, "tag": "v0.1.0-alpha.4", "prerelease": true, "draft": false, "publishedAt": "2026-10-12T20:29:23Z"},
+    {"id": 410963802, "tag": "v0.1.0-alpha.3", "prerelease": true, "draft": false, "publishedAt": "2026-10-12T20:12:53Z"},
+    {"id": 410635101, "tag": "v0.1.0-alpha.2", "prerelease": true, "draft": false, "publishedAt": "2026-10-12T13:31:17Z"},
+    {"id": 396574239, "tag": "v0.1.0-alpha.1", "prerelease": true, "draft": false, "publishedAt": "2026-09-25T12:12:06Z"}
+  ],
+  "alpha10Assets": [
+    {"id": 635581124, "name": "workflow-v0.1.0-alpha.10.zip", "size": 66270, "digest": "sha256:3e6dab07ccfaffdcc39a9e77800bb3eec61e975a0cc3f51be1965658730da097"},
+    {"id": 635581126, "name": "workflow-v0.1.0-alpha.10.zip.sha256", "size": 95, "digest": "sha256:5336c25583e8c7ff26874adb184c607a72f0cce9221298f9c2d7c9163545a083"}
+  ]
+}
