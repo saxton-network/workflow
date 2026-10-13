@@ -70,10 +70,10 @@ Repeat until terminal completion or a stop condition:
 
 1. Reconcile completed subagent reports with actual Git state, including the branch/worktree diff and the task's fresh verification evidence.
 2. Mark only independently verified successful tasks as `complete` or `passed`; a subagent's status string is not sufficient evidence.
-3. Mark review tasks `findings` only when the reviewer actually reports findings.
+3. Mark review tasks `findings` only when the reviewer actually reports findings, and do so in the manifest before dispatching the repair task; the repair's readiness depends on that status, and the helper cannot detect a skipped status afterwards.
 4. Never mark required work `skipped` merely to unblock downstream work.
 5. Evaluate the manifest dependency and `required_status` rules.
-6. Dispatch every safe ready task.
+6. Dispatch every safe ready task, and only tasks the helper's `--ready` lists after the status updates above.
 7. For a parallel group, dispatch all independent ready tasks concurrently when capacity allows.
 8. Wait for their completion.
 9. Validate result files, commits, branch cleanliness, and required checks.
@@ -208,6 +208,10 @@ One approval covers only the stated milestone.
 
 Repository-only child-task dispatch and ordinary integration do not need repeated approvals when already authorized by the approved workflow.
 
+## Durable review records
+
+An independent review that happens outside a workflow directory (for example, of an ordinary pull request) is recorded where it can be found later: one comment on the pull request before merge, giving the verdict, the findings and how each was resolved, and the reviewer's independence in words. Inside a workflow, the review's result file is the record.
+
 ## Stop conditions
 
 Stop the whole workflow and report clearly when:
@@ -238,6 +242,7 @@ Report:
 - independent review result;
 - live deployment result if applicable;
 - canonical refs and authority state if reconciliation is part of the workflow;
+- for a deployment whose live attempt failed: the end state "stopped after verified rollback" (never "complete"), the rollback verification, and whether a retry is planned;
 - when the terminal task lands the workflow's records by pull request, the
   merge commit and a fresh check of the authority ref after the merge (do not
   report the workflow as reconciled until that check passes);

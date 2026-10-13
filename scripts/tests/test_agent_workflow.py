@@ -394,6 +394,58 @@ class WorkflowV3Tests(unittest.TestCase):
         manifest["status"]["J"] = "pending"
         self.assertEqual(self.live_view(manifest, evidence)[0], "PREVIEW")
 
+    def test_failed_attempt_closes_the_gate_until_fresh_readiness(self) -> None:
+        manifest = self.deploy_manifest()
+        manifest["status"]["J"] = "failed"
+        evidence = self.evidence()
+        evidence["records"][3].update(taskStatus="failed", runtimeAcceptance="FAIL")
+        self.assertEqual(self.gate(manifest, evidence), "GATED")
+        label, view, ready = self.live_view(manifest, evidence)
+        self.assertEqual(label, "GATED")
+        self.assertIn("latest live attempt failed", view)
+        self.assertNotIn("J  ", ready)
+        # A new approval for the same readiness does not reopen the gate.
+        evidence["records"].append(copy.deepcopy(evidence["records"][3]))
+        evidence["records"][-1].update(taskStatus="in_progress", runtimeAcceptance=None, approvalReference="approval-2")
+        manifest["status"]["J"] = "in_progress"
+        self.assertEqual(self.gate(manifest, evidence), "GATED")
+        # Fresh readiness after the failure starts a new cycle: preview first, then a new approval.
+        evidence["records"] = evidence["records"][:4] + [copy.deepcopy(evidence["records"][2])]
+        manifest["status"]["J"] = "pending"
+        self.assertEqual(self.gate(manifest, evidence), "PREVIEW")
+        evidence["records"].append({"taskId": "J", "taskStatus": "in_progress", "approvalReference": "approval-2",
+                                    "deploymentSourceSha": self.SOURCE,
+                                    "frozenBatchFingerprint": evidence["records"][2]["frozenBatchFingerprint"]})
+        self.assertEqual(self.gate(manifest, evidence), "READY")
+
+    def test_any_unsuccessful_attempt_closes_the_gate(self) -> None:
+        manifest = self.deploy_manifest()
+        # Realistic order: the approval record, then the attempt's outcome.
+        for outcome in ({"taskStatus": "failed"}, {"taskStatus": "FAILED"}, {"taskStatus": "cancelled"},
+                        {"taskStatus": "aborted"}, {"taskStatus": "skipped"}, {"taskStatus": "error"},
+                        {"taskStatus": "in_progress", "runtimeAcceptance": "FAIL"},
+                        {"taskStatus": "complete", "runtimeAcceptance": "FAIL"}):
+            evidence = self.evidence()
+            evidence["records"][3]["taskStatus"] = "in_progress"
+            evidence["records"].append({**copy.deepcopy(evidence["records"][3]), **outcome})
+            # A later record that claims success or asks again cannot reopen it.
+            for later in ({"taskStatus": "in_progress", "runtimeAcceptance": None},
+                          {"taskStatus": "complete", "runtimeAcceptance": "PASS"}):
+                trial = copy.deepcopy(evidence)
+                trial["records"].append({**copy.deepcopy(evidence["records"][3]), **later})
+                self.assertEqual(self.gate(manifest, trial), "GATED", (outcome, later))
+                manifest["status"]["J"] = "complete"
+                with tempfile.TemporaryDirectory() as directory:
+                    root = Path(directory)
+                    path = root / manifest["workflow"]["evidence_manifest"]
+                    path.parent.mkdir(parents=True)
+                    path.write_text(json.dumps(trial), encoding="utf-8")
+                    with patch.object(agent_task, "ROOT", root):
+                        self.assertFalse(agent_task.final_reconciliation_ready(manifest), (outcome, later))
+                        self.assertFalse(agent_task.task_ready("K", manifest), (outcome, later))
+                        self.assertEqual(agent_task.live_task_label("J", manifest), "GATED", (outcome, later))
+                manifest["status"]["J"] = "in_progress"
+
     def test_ready_gate_with_unmet_dependencies_is_gated(self) -> None:
         manifest = self.deploy_manifest()
         manifest["tasks"]["J"]["required_status"] = {"R": "passed"}

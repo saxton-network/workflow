@@ -98,10 +98,18 @@ Findings, recorded for a later batch:
 7. While a tag exists, GitHub serves a plain tag page at `/releases/tag/<tag>` even after the release is deleted. Rollback checks must use the API, not the page.
 8. Draft visibility for the GitHub connection could only be inferred from write access, not observed.
 
+Follow-up, in the next change after Pilot 4:
+
+- Finding 1: the helper keeps the live task `GATED` after a failed attempt until a fresh readiness record exists, so it no longer offers the same fingerprint for a new approval preview.
+- Findings 2, 3 and 4: `agent-work/WORKFLOW-SPEC.md` names the end state "stopped after verified rollback", allows records after a verified rollback, and defines drills with declared injected failures.
+- Finding 5: `agent-work/COORDINATOR.md` requires setting a review's `findings` status before dispatching repair, and dispatching only what `--ready` lists.
+- Finding 6: `agent-work/COORDINATOR.md` requires one durable PR comment for independent reviews outside a workflow directory.
+- Findings 7 and 8: `docs/RELEASING.md` describes rollback order, API-based verification, and draft visibility.
+
 ## Current maturity
 
 The repository-only path has passed a controlled pilot. The deployment path has passed one live pilot on its success path (Pilot 3) and one live rollback drill (Pilot 4). The drill exercised only the published-release-plus-tag row of the rollback matrix, performed by the owner by hand. The tag-only and draft rows, run cancellation, the retry boundary, and frozen-batch invalidation have not been exercised live.
 
-The framework should still be treated as experimental: two live runs are not broad coverage, and Pilot 4's findings are open.
+The framework should still be treated as experimental: two live runs are not broad coverage, and the fixes for Pilot 4's findings have not yet been exercised by another live run.
 
 The important pattern is deliberate: a pilot finding stops advancement, becomes a narrow validator/test repair, receives independent review, and only then is the same scenario retried.

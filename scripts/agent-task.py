@@ -637,6 +637,9 @@ def live_gate_state(data: dict, evidence_path: Path | None = None, *, allow_comp
         return "GATED"
     live_attempts = [item for item in records[readiness_index + 1:] if isinstance(item, dict)
                      and item.get("taskId") == live_id]
+    if any(_attempt_unsuccessful(item) for item in live_attempts):
+        # A failed attempt may have left public state behind; another attempt needs fresh readiness.
+        return "GATED"
     if not live_attempts:
         return "PREVIEW"
     attempt = live_attempts[-1]
@@ -741,21 +744,38 @@ def task_ready(task_id: str, data: dict, evidence_path: Path | None = None) -> b
 
 
 
-def _live_attempt_finished(data: dict, evidence_path: Path | None = None) -> bool:
-    """True when the latest live record since the latest readiness record reports a finished attempt."""
+# Live-attempt statuses that do not mean the attempt ended badly; anything else closes the gate.
+LIVE_ATTEMPT_OK_STATUSES = {None, "pending", "blocked", "in_progress", "complete", "passed"}
+
+
+def _attempt_unsuccessful(record: dict) -> bool:
+    """True when a live record reports failed acceptance or any status other than a known non-failure."""
+    status = record.get("taskStatus")
+    return (record.get("runtimeAcceptance") == "FAIL" or
+            not (status is None or isinstance(status, str)) or status not in LIVE_ATTEMPT_OK_STATUSES)
+
+
+def _live_attempts_since_readiness(data: dict, evidence_path: Path | None = None) -> list[dict]:
+    """Live records after the latest readiness record, oldest first."""
     records_data = _read_evidence(data, evidence_path)
     if records_data is None:
-        return False
+        return []
     deployment = data["deployment"]
-    attempt = None
+    attempts: list[dict] = []
     for record in records_data["records"]:
         if not isinstance(record, dict):
             continue
         if record.get("taskId") == deployment["readiness_task"]:
-            attempt = None
+            attempts = []
         elif record.get("taskId") == deployment["live_task"]:
-            attempt = record
-    return attempt is not None and attempt.get("taskStatus") in DEFAULT_DEPENDENCY_SUCCESS_STATUSES
+            attempts.append(record)
+    return attempts
+
+
+def _live_attempt_finished(data: dict, evidence_path: Path | None = None) -> bool:
+    """True when the latest live record since the latest readiness record reports a finished attempt."""
+    attempts = _live_attempts_since_readiness(data, evidence_path)
+    return bool(attempts) and attempts[-1].get("taskStatus") in DEFAULT_DEPENDENCY_SUCCESS_STATUSES
 
 
 def live_task_label(task_id: str, data: dict, evidence_path: Path | None = None) -> str:
@@ -837,6 +857,8 @@ def print_task(phase: str, task_id: str, data: dict) -> None:
             print("Do not dispatch this live task; its required evidence or dependency gate is closed.")
             if status in DEFAULT_DEPENDENCY_SUCCESS_STATUSES:
                 print(f"Its status is {status}, but no runtime acceptance PASS is recorded for the readied source and fingerprint.")
+            elif any(_attempt_unsuccessful(item) for item in _live_attempts_since_readiness(data)):
+                print("The latest live attempt failed; another attempt needs fresh readiness and a new approval.")
             for problem in evidence_format_problems(data):
                 print(f"Format problem: {problem}")
         elif gate == "PREVIEW":
