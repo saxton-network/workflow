@@ -1,0 +1,10 @@
+{
+  "repository": "saxton-network/workflow",
+  "workflow": ".github/workflows/release.yml",
+  "workflowId": "release.yml",
+  "ref": "main",
+  "inputs": {
+    "version": "v0.1.0-alpha.13",
+    "prerelease": true
+  }
+}
