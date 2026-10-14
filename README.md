@@ -102,11 +102,12 @@ final reconciliation
 
 The manifest must still declare an authority remote/ref when promotion is omitted. That means the source is already authoritative, not that authority is irrelevant.
 
-The live gate has three helper states:
+The live gate has four helper states:
 
-- **GATED**: required evidence is missing, invalid, stale, or failed.
+- **GATED**: required evidence is missing, invalid, stale, or failed, or the manifest records the live task as `failed`.
 - **PREVIEW**: readiness PASS is proven, but there is no matching approval reference.
 - **READY**: evidence contains a matching approval reference. This is still only a coordinator handoff. The coordinator must verify the actual human approval and recheck mutable state before mutation.
+- **DONE**: the live task finished with runtime acceptance PASS for the readied source and fingerprint. It is never offered for another preview or dispatch; another live change needs fresh readiness and a new approval.
 
 ## Agent lifecycle direction
 

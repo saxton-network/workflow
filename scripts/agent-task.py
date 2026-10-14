@@ -497,6 +497,9 @@ def live_gate_state(data: dict, evidence_path: Path | None = None, *, allow_comp
                  if isinstance(record, dict) and record.get("taskId") == readiness_id]
     if data["status"].get(review_id) != "passed" or data["status"].get(readiness_id) != "complete" or not reviews or not readiness:
         return "GATED"
+    if data["status"].get(live_id) == "failed":
+        # The manifest's own record of a failed attempt closes the gate even when no failed evidence record exists.
+        return "GATED"
     authority_id = deployment.get("authority_task")
     if authority_id is not None and data["status"].get(authority_id) not in DEFAULT_DEPENDENCY_SUCCESS_STATUSES:
         return "GATED"
@@ -892,6 +895,9 @@ def print_task(phase: str, task_id: str, data: dict) -> None:
                 print(f"Its status is {status}, but no runtime acceptance PASS is recorded for the readied source and fingerprint.")
             elif _attempts_unsuccessful(_live_attempts_since_readiness(data)):
                 print("The latest live attempt failed; another attempt needs fresh readiness and a new approval.")
+            elif status == "failed":
+                print("The manifest records this live task as failed; another attempt needs fresh readiness, "
+                      "a new approval and its status reset to pending.")
             for problem in evidence_format_problems(data):
                 print(f"Format problem: {problem}")
         elif gate == "PREVIEW":

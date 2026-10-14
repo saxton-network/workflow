@@ -21,7 +21,11 @@ The release workflow creates:
 
 The workflow creates the release tag itself at the exact workflow commit, using a single API call that fails if the tag already exists, then publishes the release against that tag and verifies the tag still points at the packaged commit. Existing tags are rejected rather than moved or overwritten, and concurrent runs for the same version are serialized.
 
-If a run fails after creating the tag but before publishing, the tag remains and a rerun is refused. Inspect the tag, delete it deliberately if it points at the intended commit and has no release, and dispatch again.
+If a run fails after creating the tag but before publishing, the tag remains and a rerun is refused. A draft release may also exist, because `gh release create` with files creates a draft before publishing it. Check the authenticated release list for a draft with that tag (drafts are visible only to accounts with write access), and remove it as in "Rolling back a release". Inspect the tag, delete it deliberately if it points at the intended commit and has no release, and dispatch again.
+
+**Timing.** A run takes about 15 seconds (Pilot 6's took 16). A cancel will not reliably stop the tag or the release in time, so a plan must not rely on a cancel to prevent publication.
+
+**Evidence.** The release's API `created_at` is the source commit's time, not the run's. Use `published_at` as evidence of when the release was published.
 
 ## Rolling back a release
 

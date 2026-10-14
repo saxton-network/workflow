@@ -62,7 +62,10 @@ the explicit deployment target destination/mode metadata (plus owner/group when
 applicable), prevalidated check results, live-only checks, proposed batch, and
 evidence links. `complete` alone does not permit a live approval preview. For a live
 attempt, record the approval reference tied to that fingerprint, immediate
-drift recheck, runtime acceptance, and rollback result when needed.
+drift recheck, runtime acceptance, and rollback result when needed. The approval
+reference names an approval record (`COORDINATOR.md` "Approval records"). A
+failed attempt also records `liveStateChanged` (`WORKFLOW-SPEC.md` "Failed live
+attempts and drills").
 
 Link detailed evidence and provide SHA-256 hashes for the coordinator's
 `evidence.json` index; do not edit the index from a child task. Use `unknown`
