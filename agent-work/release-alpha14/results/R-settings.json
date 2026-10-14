@@ -1,0 +1,8 @@
+{
+  "recordedAt": "2026-10-14",
+  "immutableReleases": {"enabled": false, "enforced_by_owner": false},
+  "rulesets": [],
+  "githubConnectionIdentity": "caffeinatedcultist",
+  "draftVisibility": "The authenticated release list is read through the GitHub connection, which acts as caffeinatedcultist, an account with write access (it pushed to main and dispatched every earlier release); GitHub shows draft releases to write-access accounts. No draft existed to observe.",
+  "curlClient": "curl requests go through the session's network proxy, which adds the session's GitHub credentials (X-RateLimit-Limit 15000; X-RateLimit-Remaining 14962 at the readiness reads)."
+}
