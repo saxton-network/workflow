@@ -1,0 +1,131 @@
+{
+  "recordedAt": "2026-10-14",
+  "mainSha": "02c771a7c7d71e2303c186d0c150e903a524e949",
+  "tags": {
+    "v0.1.0-alpha.1": "a4cd8cf5008cafd3fdc2a1b864df56f89729267a",
+    "v0.1.0-alpha.10": "b2316d116d09d91788b9b653a126cb3edd702281",
+    "v0.1.0-alpha.11": "d568c5f18986ea122018bde2d1badb257346dd92",
+    "v0.1.0-alpha.12": "c7ad3c3b1ae3e0a07d7af0322f0688e7d4533c9f",
+    "v0.1.0-alpha.13": "84d826a40b8f8567439ab15eb270a1a752f92a82",
+    "v0.1.0-alpha.2": "36f726b26229ef1a88814f34d459d4655404d8d0",
+    "v0.1.0-alpha.3": "73e699c1454f8b3be0af40d1d8816412755a1327",
+    "v0.1.0-alpha.4": "c5ef4b8b478e17458143c2878992e7b7fc090ab0",
+    "v0.1.0-alpha.5": "02d4efad4099447ca6b2e8ef506c1efd19ba53fb",
+    "v0.1.0-alpha.6": "513d50470f490eb8d064cf20fda960c0277365c4",
+    "v0.1.0-alpha.7": "4a7e41839687e205f4706f846ba0204bec4976e3",
+    "v0.1.0-alpha.8": "b2808447f4b2684a52a4c4046cfe4852df58f440",
+    "v0.1.0-alpha.9": "329f5ffb40ef16d7537f2ee1239fd24868fea3ba"
+  },
+  "releases": [
+    {
+      "id": 412320357,
+      "tag": "v0.1.0-alpha.13",
+      "prerelease": true,
+      "draft": false,
+      "publishedAt": "2026-10-14T03:49:47Z"
+    },
+    {
+      "id": 411440138,
+      "tag": "v0.1.0-alpha.12",
+      "prerelease": true,
+      "draft": false,
+      "publishedAt": "2026-10-13T08:11:58Z"
+    },
+    {
+      "id": 411336897,
+      "tag": "v0.1.0-alpha.11",
+      "prerelease": true,
+      "draft": false,
+      "publishedAt": "2026-10-13T06:04:47Z"
+    },
+    {
+      "id": 411170622,
+      "tag": "v0.1.0-alpha.10",
+      "prerelease": true,
+      "draft": false,
+      "publishedAt": "2026-10-13T02:00:45Z"
+    },
+    {
+      "id": 411029773,
+      "tag": "v0.1.0-alpha.9",
+      "prerelease": true,
+      "draft": false,
+      "publishedAt": "2026-10-12T22:01:14Z"
+    },
+    {
+      "id": 411022355,
+      "tag": "v0.1.0-alpha.8",
+      "prerelease": true,
+      "draft": false,
+      "publishedAt": "2026-10-12T21:48:28Z"
+    },
+    {
+      "id": 411014865,
+      "tag": "v0.1.0-alpha.7",
+      "prerelease": true,
+      "draft": false,
+      "publishedAt": "2026-10-12T21:35:40Z"
+    },
+    {
+      "id": 411000521,
+      "tag": "v0.1.0-alpha.6",
+      "prerelease": true,
+      "draft": false,
+      "publishedAt": "2026-10-12T21:13:10Z"
+    },
+    {
+      "id": 410987944,
+      "tag": "v0.1.0-alpha.5",
+      "prerelease": true,
+      "draft": false,
+      "publishedAt": "2026-10-12T20:52:31Z"
+    },
+    {
+      "id": 410973940,
+      "tag": "v0.1.0-alpha.4",
+      "prerelease": true,
+      "draft": false,
+      "publishedAt": "2026-10-12T20:29:23Z"
+    },
+    {
+      "id": 410963802,
+      "tag": "v0.1.0-alpha.3",
+      "prerelease": true,
+      "draft": false,
+      "publishedAt": "2026-10-12T20:12:53Z"
+    },
+    {
+      "id": 410635101,
+      "tag": "v0.1.0-alpha.2",
+      "prerelease": true,
+      "draft": false,
+      "publishedAt": "2026-10-12T13:31:17Z"
+    },
+    {
+      "id": 396574239,
+      "tag": "v0.1.0-alpha.1",
+      "prerelease": true,
+      "draft": false,
+      "publishedAt": "2026-09-25T12:12:06Z"
+    }
+  ],
+  "releaseListIdentity": "caffeinatedcultist (GitHub connection, write access; drafts visible; none present)",
+  "latestRelease": "none: /releases/latest returns 404 through both the connection and curl, because every release is a prerelease",
+  "alpha13Assets": [
+    {
+      "name": "workflow-v0.1.0-alpha.13.zip",
+      "size": 161870,
+      "digest": "sha256:e520b61c3c48572b73001d333b2c79499e33b3e5c19f34988d5be2f3e191d5d4"
+    },
+    {
+      "name": "workflow-v0.1.0-alpha.13.zip.sha256",
+      "size": 95,
+      "digest": "sha256:682c24ea849181807521e89b938cab9bde3e3712daecd4e05233d18ab603c939"
+    }
+  ],
+  "latestReleaseRun": {
+    "id": 38508243210,
+    "runNumber": 13,
+    "totalRuns": 13
+  }
+}

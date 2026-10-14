@@ -1,0 +1,90 @@
+workflow_version = 3
+phase = "release-alpha14"
+title = "Release v0.1.0-alpha.14 through the deployment graph (Pilot 8)"
+phase_baseline = "02c771a7c7d71e2303c186d0c150e903a524e949"
+plan = "agent-work/release-alpha14/PLAN.md"
+contract = "agent-work/release-alpha14/CONTRACT.md"
+
+[workflow]
+mode = "coordinator"
+plan_status = "approved"
+coordinator = "agent-work/COORDINATOR.md"
+auto_dispatch = true
+max_parallel_subagents = 1
+evidence_manifest = "agent-work/release-alpha14/evidence.json"
+human_gate_tasks = ["J"]
+terminal_task = "K"
+
+[status]
+A = "complete"
+B = "passed"
+C = "conditional"
+R = "complete"
+J = "complete"
+V = "blocked"
+K = "complete"
+
+[tasks.A]
+kind = "implementation"
+name = "Identify the candidate: the current main head"
+file = "agent-work/release-alpha14/A-candidate.md"
+branch = "pilot/alpha14-records"
+depends_on = []
+
+[tasks.B]
+kind = "independent_review"
+name = "Release review of the candidate and the contract"
+file = "agent-work/release-alpha14/B-review.md"
+branch = "pilot/alpha14-records"
+depends_on = ["A"]
+required_status = { A = "complete" }
+rerun_after = "C"
+
+[tasks.C]
+kind = "repair"
+name = "Repair review findings through a reviewed PR"
+file = "agent-work/release-alpha14/C-repair.md"
+branch = "pilot/alpha14-fix"
+depends_on = ["B"]
+required_status = { B = "findings" }
+conditional = "review_findings_exist"
+
+[tasks.R]
+kind = "release_readiness"
+name = "Prove readiness and freeze the batch"
+file = "agent-work/release-alpha14/R-readiness.md"
+branch = "pilot/alpha14-records"
+depends_on = ["B"]
+required_status = { B = "passed" }
+
+[tasks.J]
+kind = "live_deployment"
+name = "Publish v0.1.0-alpha.14 after owner approval and accept it at runtime"
+file = "agent-work/release-alpha14/J-live.md"
+branch = "pilot/alpha14-records"
+depends_on = ["R"]
+human_gate = "live-change-approval"
+
+[tasks.V]
+kind = "other"
+name = "After a failed attempt: guide the rollback, verify the baseline, land the records"
+file = "agent-work/release-alpha14/V-rollback.md"
+branch = "pilot/alpha14-records"
+depends_on = ["J"]
+required_status = { J = "failed" }
+
+[tasks.K]
+kind = "final_reconciliation"
+name = "Reconcile refs and the release, and land the records"
+file = "agent-work/release-alpha14/K-reconcile.md"
+branch = "pilot/alpha14-records"
+depends_on = ["J"]
+
+[deployment]
+implementation_tasks = ["A"]
+review_task = "B"
+authority_remote = "origin"
+authority_ref = "refs/heads/main"
+readiness_task = "R"
+live_task = "J"
+final_reconciliation_task = "K"
