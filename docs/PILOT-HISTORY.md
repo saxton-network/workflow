@@ -209,7 +209,7 @@ What happened:
   - Round 2 found two Medium gaps: no "nothing exists" row, and no end to the main freeze when nothing was published.
   - Round 3 approved. The owner approved revision 3.
 - **Scaffold.** The scaffold review added eight task-file details (S1–S8), mainly a fuller pre-dispatch recheck.
-- **Review.** The release review (B), on a different model from the builder, passed with four Low findings.
+- **Review.** The release review (B), on a different model from the builder, passed with five Low findings: one applied before readiness, four deferred.
 - **Plan clarification.** One review suggestion made an acceptance check stricter: name both assets, require "not a draft", and check the title. It was recorded as a dated plan clarification before readiness, which is the PR #21 mechanism used live for the first time.
 - **Readiness.** It passed. The ZIP was reproducible, alpha.12's published ZIP was reproduced from its commit, and there were no rulesets.
 - **Approval.** The approval record follows `COORDINATOR.md` "Approval records": the question as asked, the owner's answer, the approved actions with input hashes, the conditions, and what it does not cover.
@@ -231,8 +231,9 @@ Rules exercised live for the first time, without trouble:
 - approval records;
 - a dated plan clarification;
 - the full pre-dispatch recheck, read before a separate dispatch;
-- the reviewer's observed model recorded every round;
-- the ref-move rules for the records landing.
+- the reviewer's observed model recorded every round.
+
+The ref-move rules apply to landing these records, which happens after this entry is written.
 
 Not exercised, because the run succeeded:
 

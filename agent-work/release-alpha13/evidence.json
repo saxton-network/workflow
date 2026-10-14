@@ -327,11 +327,11 @@
       "evidence": [
         {
           "path": "agent-work/release-alpha13/results/K.md",
-          "sha256": "a43597595e70f6fb944564692d43141708b042078493e9279a93e2f7e1a0f5e7"
+          "sha256": "2b87ad8dd60d77bc69d757bf948896d7007030ae56b0b6ceeb2327473410faae"
         },
         {
           "path": "docs/PILOT-HISTORY.md",
-          "sha256": "b1ac22ef96af1de859ad51c16a75e7272032807c2af472ea346adbcacada6b5c"
+          "sha256": "52d3fddf9062fac9c47b911ee77903097c24c8558b69740f86acdf1a4289fb30"
         }
       ],
       "helper": {

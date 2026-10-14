@@ -13,7 +13,7 @@ The main freeze ended with runtime acceptance.
 
 - No GitHub tokens, private-key blocks, bearer tokens or AWS key IDs in `agent-work/release-alpha13/` or the `docs/PILOT-HISTORY.md` change.
 - No email addresses, IP addresses, local machine paths, session links or model names in the workflow directory.
-- Private repository names, checked through the authenticated connection: the only match is the ordinary word "control" in existing history text. No private name is printed here.
+- Private repository names, checked through the authenticated connection: the only matches are ordinary English words in existing history text. No private name is printed here.
 - The records name the owner's public GitHub username in `results/R-settings.json`, as Pilot 4's records do; the plan disclosed this and the owner accepted it (owner decision 7).
 
 ## Records divergence from the deployed source
