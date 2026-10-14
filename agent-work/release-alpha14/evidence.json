@@ -226,6 +226,36 @@
         "path": "scripts/agent-task.py",
         "sha256": "8ec1b22cd97d10e1873ed9dfa83a37fa58f036914452f1af6508564215748f3c"
       }
+    },
+    {
+      "taskId": "J",
+      "attempt": 1,
+      "role": "live_deployment",
+      "model": null,
+      "branch": "pilot/alpha14-records",
+      "worktree": null,
+      "baseSha": "02c771a7c7d71e2303c186d0c150e903a524e949",
+      "candidateSha": "02c771a7c7d71e2303c186d0c150e903a524e949",
+      "deploymentSourceSha": "02c771a7c7d71e2303c186d0c150e903a524e949",
+      "taskStatus": "in_progress",
+      "readinessVerdict": null,
+      "startedAt": null,
+      "completedAt": null,
+      "changedPaths": [],
+      "reviewFindingIds": [],
+      "approvalReference": "agent-work/release-alpha14/results/J-approval.md",
+      "frozenBatchFingerprint": "2da72c54825b9b6668e958ad72d4dc017b87f229be5920233060c204d04365b1",
+      "validation": [],
+      "evidence": [
+        {
+          "path": "agent-work/release-alpha14/results/J-approval.md",
+          "sha256": "854e6dc5f6abce066ddc7348e3f57f699dc3e9845c4e53f4ce00828eae5f9f48"
+        }
+      ],
+      "helper": {
+        "path": "scripts/agent-task.py",
+        "sha256": "8ec1b22cd97d10e1873ed9dfa83a37fa58f036914452f1af6508564215748f3c"
+      }
     }
   ]
 }
