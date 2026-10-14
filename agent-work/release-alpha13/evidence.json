@@ -40,6 +40,41 @@
         "path": "scripts/agent-task.py",
         "sha256": "67fa523bd62cf21ad53d969460074982baff1f5b5e1312a086b953e0138f4434"
       }
+    },
+    {
+      "taskId": "B",
+      "attempt": 1,
+      "role": "independent_review",
+      "model": null,
+      "branch": "pilot/alpha13-records",
+      "worktree": null,
+      "baseSha": "c7ad3c3b1ae3e0a07d7af0322f0688e7d4533c9f",
+      "candidateSha": "84d826a40b8f8567439ab15eb270a1a752f92a82",
+      "deploymentSourceSha": "84d826a40b8f8567439ab15eb270a1a752f92a82",
+      "taskStatus": "passed",
+      "readinessVerdict": null,
+      "startedAt": null,
+      "completedAt": null,
+      "changedPaths": [],
+      "reviewFindingIds": [
+        "B1",
+        "B2",
+        "B3",
+        "B4",
+        "B5"
+      ],
+      "approvalReference": null,
+      "validation": [],
+      "evidence": [
+        {
+          "path": "agent-work/release-alpha13/results/B-1.md",
+          "sha256": "924a8aa430f0e9ac9173ffcca3b6ebab16e9807e63dd98a7d472ef91efd45e2f"
+        }
+      ],
+      "helper": {
+        "path": "scripts/agent-task.py",
+        "sha256": "67fa523bd62cf21ad53d969460074982baff1f5b5e1312a086b953e0138f4434"
+      }
     }
   ]
 }

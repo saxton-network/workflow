@@ -32,8 +32,8 @@ Checks run in order and stop at the first failure.
    - `head_sha` equals the `main` tip recorded at the recheck.
    - Conclusion: success.
 2. **The release.**
-   - `v0.1.0-alpha.13` is published, is a prerelease, and is not latest.
-   - It has exactly the two expected assets.
+   - `v0.1.0-alpha.13` is published (not a draft), is a prerelease, and is not latest; its title is `Workflow v0.1.0-alpha.13`.
+   - It has exactly the two expected assets: `workflow-v0.1.0-alpha.13.zip` and `workflow-v0.1.0-alpha.13.zip.sha256`.
    - The ZIP's SHA-256 equals the frozen hash.
    - The `.sha256` asset bytes equal `R-expected-checksum.txt`.
    - The unpacked ZIP equals `git archive` of the source.

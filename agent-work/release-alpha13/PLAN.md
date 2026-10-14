@@ -309,7 +309,7 @@ Any other difference is a finding.
 
 Dated entries go here. A task file that makes a check stricter, or swaps in an equal or stronger proof, is recorded here before the task runs. The next independent review checks it, and the next owner preview lists it. Anything weaker or wider, or anything that changes the live batch, needs a revised plan and a new approval.
 
-*(none yet)*
+- **2026-10-14, before R (review finding B5, strengthening only).** `CONTRACT.md` runtime acceptance check 2 now names the two assets (`workflow-v0.1.0-alpha.13.zip` and `workflow-v0.1.0-alpha.13.zip.sha256`), requires the release not to be a draft, and checks the title `Workflow v0.1.0-alpha.13`. This is stricter than the plan's "exactly the two expected assets" and "published". The next independent review is the records review; the next owner preview lists it.
 
 ## Records
 
