@@ -242,17 +242,40 @@ Not exercised, because the run succeeded:
 - `liveStateChanged`;
 - the rollback matrix.
 
+## Pilot 7: first adopter upgrade, stopped after verified rollback
+
+Goal: upgrade `saxton-network/site`'s vendored Workflow files to `v0.1.0-alpha.13` and put its existing v2 page live. The full [records](https://github.com/saxton-network/site/tree/a3aa6b47db3bca76ce314d07a0ddac35e4cc86df/agent-work/site-upgrade) are in `agent-work/site-upgrade/` in the site repository.
+
+What happened:
+
+- **Upgrade.** The release ZIP was verified against its digest and source commit. Five copied files changed and three stayed byte-identical; `ADOPTION.md` was updated. The page kept the owner's date choice, "Last updated 13 October 2026". v2 had already been briefly public during Pilot 5's drill, so this added no new exposure.
+- **Review and clarification.** Independent plan, scaffold and implementation reviews passed (the plan after a second round). A dated plan clarification corrected ambiguity 7: the copied threat model still references `docs/PILOT-HISTORY.md`; the adoption guide now explains that this points back to Workflow. It is answered, not removed. Other ambiguities remain partly answered or unanswered.
+- **Readiness and approval.** The reviewed source was promoted to `main`, readiness passed and the batch was frozen. After the plain-language preview, the owner approved one v2 dispatch and one conditional rollback, and confirmed availability if rollback failed. The approval record bound both input-file hashes to the source and fingerprint.
+- **Handover.** The coordinator changed between readiness and the live attempt: the owner moved the remaining steps to an agent from another vendor, working from a written handoff. The new coordinator showed the preview again before asking the question. The site records do not describe the handover; this account comes from the outgoing coordinator and the owner.
+- **Live attempt.** The pre-dispatch recheck was read clean, then one dispatch ran. Run 38513237296 reported success with the expected head and name, but the coordinator's command-line client got `Forbidden` after a redirect when it requested the deployment log that acceptance check 1 requires. Acceptance stopped at check 1; the v2 live-byte check was not attempted. The publishing step had succeeded and a new Pages deployment existed, so `liveStateChanged` was `true`.
+- **Rollback.** The owner was told promptly. After the first run finished and the rollback recheck passed, one dispatch restored v1 under the same approval. The coordinator's authenticated GitHub connection, a second client, could read the rollback log; its source and file hash matched v1, and `curl` returned HTTP 200 with exact v1 bytes. `main` was unchanged. End state: **stopped after verified rollback**. J remains failed and K blocked; no retry is approved or planned.
+- **The v2 run was correct.** A later read of run 38513237296's job log shows `DEPLOY HEAD=95914a54336983fc48e286b8e16cb6780076d2f2` and `DEPLOY INDEX_SHA256=1f60283e1c442f0fd8e0015787c84febd2b37eabfe83bc9dbea54e7b345f7a35`, the frozen source and v2 hash. The failure was in reading the evidence, not in the deploy, and the rollback undid a correct deploy. J stays `failed`: evidence read after the failed check does not turn a failed attempt into a pass.
+- **Records.** Independent review of the records PR (site PR #4) reported a site-rule violation: inherited commit messages carry the mandated `Co-Authored-By` trailers, which contain an email address. That conflicted with the site's adoption log (`ADOPTION.md`, ambiguity 17), which records the mandated identity and trailers as treated as owner-approved; `AGENTS.md` itself has no such exception, so the review's reading of the rule was literal. Neither the review nor the repair mentions the adoption log's record. The review was right that a task instruction also asked for reviewer-identity trailers, and the repair removed it. A separate repair role prepared a file snapshot of the records directly above the source on a new branch, preserving the original branch and history. The same reviewer passed it. With the owner's go-ahead (confirmed by the owner afterwards), [site PR #5](https://github.com/saxton-network/site/pull/5) landed by local `--no-ff` merge and an asserted-literal fast-forward push; the API showed it merged. PR #4 was closed as replaced. The replacement's commits were made with the new coordinator machine's configured git identity, which is personal. So the detour added a personal name and email address to the site's public history, the exposure the finding meant to prevent. Removing them would mean rewriting `main`, which the rules forbid without the owner's decision.
+
+Findings and observations:
+
+1. **Evidence access.** Acceptance named the evidence (the job log's `DEPLOY` lines) but not how to read it. One client could not, and another could. *Suggested action:* readiness proves that the coordinator can read a recent deploy job's log with the client it will use at acceptance, and the contract says whether a second read-only client may be used within the acceptance window. A read of the same evidence is not a retry of the live batch. This is settled before approval; it never turns a failed acceptance into a pass.
+2. **Owner decisions must reach the reviewer.** An owner decision that interprets a repository rule must be written next to the rule (in `AGENTS.md`), not only in the adoption log. Otherwise a careful reviewer reports the rule as broken and the repair works against the owner's decision. *Suggested action:* `docs/ADOPTING.md` section 3 already asks adopters to say whether the trailers are exempt; make it say the answer is written in `AGENTS.md`, not only in the adoption log, and have the review briefing list the adoption log's decisions.
+3. **Commit identity on a handover.** "Use the identity already configured" depends on the machine. A handover between coordinators changed the author identity on a public repository. *Suggested action:* an adopter's `AGENTS.md` says which identity to use without naming a person or address (for example, "the configured no-reply identity, never a personal one"), and a handoff requires checking `git config user.name` and `user.email` against it before the first commit.
+4. **Adoption rows.** `docs/ADOPTING.md` shows three-column provenance rows; the site's existing hash gate requires four columns, including the source path. The upgrade kept that format and recorded the difference rather than changing the gate.
+
 ## Current maturity
 
-The repository-only path has passed a controlled pilot. The deployment path has run five live workflows:
+The repository-only path has passed a controlled pilot. The deployment path has run six live workflows:
 
 - Pilot 3: the success path, a GitHub prerelease;
 - Pilot 4: a rollback drill, with an owner-performed release and tag deletion;
 - Pilot 5: two in a first adopter project, the GitHub Pages success path and a Pages rollback drill (a coordinator redeploy of the previous commit);
-- Pilot 6: the success path again, `v0.1.0-alpha.13`, with the post-Pilot 5 rules.
+- Pilot 6: the success path again, `v0.1.0-alpha.13`, with the post-Pilot 5 rules;
+- Pilot 7: the first adopter upgrade, with failed acceptance and a verified coordinator rollback.
 
 Pilot 5 is the first adoption by a newcomer in another repository. It exercised the fixes for Pilot 4's findings: J stayed `GATED` after the failed attempt, and records landed after a verified rollback. The tag-only and draft rollback rows, run cancellation, frozen-batch invalidation and a refused retry have still not been exercised live; for the retry boundary, only the helper's `GATED` label was observed.
 
-The framework should still be treated as experimental: five live workflows are not broad coverage, and Pilot 5's adoption findings show that the docs assume knowledge a newcomer does not have.
+The framework should still be treated as experimental: six live workflows are not broad coverage, and Pilot 5's adoption findings show that the docs assume knowledge a newcomer does not have.
 
 The important pattern is deliberate: a pilot finding stops advancement, becomes a narrow validator/test repair, receives independent review, and only then is the same scenario retried.
