@@ -264,18 +264,63 @@ Findings and observations:
 3. **Commit identity on a handover.** "Use the identity already configured" depends on the machine. A handover between coordinators changed the author identity on a public repository. *Suggested action:* an adopter's `AGENTS.md` says which identity to use without naming a person or address (for example, "the configured no-reply identity, never a personal one"), and a handoff requires checking `git config user.name` and `user.email` against it before the first commit.
 4. **Adoption rows.** `docs/ADOPTING.md` shows three-column provenance rows; the site's existing hash gate requires four columns, including the source path. The upgrade kept that format and recorded the difference rather than changing the gate.
 
+Follow-up, in the change after Pilot 7 (PR #25):
+
+- **Pilot 6 findings 1–6.**
+  - README lists the four live-gate states.
+  - `docs/RELEASING.md` covers a possible draft after a failed run, the run's timing, and `published_at` as evidence.
+  - The helper keeps a live task `GATED` when the manifest records it `failed`, with tests.
+  - `RESULT-TEMPLATE.md` points to approval records and `liveStateChanged`.
+  - The threat model's old findings table is labelled historical.
+- **Pilot 7 findings 1–4.**
+  - `docs/ADOPTING.md` asks readiness to prove the evidence-read client, and the contract to decide any second client before approval.
+  - Owner decisions go next to the rule they interpret.
+  - The commit identity is named without naming a person, and a handover checks it.
+  - A working gate's row form is kept.
+  - `COORDINATOR.md` Startup has the handover identity check.
+
+## Pilot 8: release v0.1.0-alpha.14 with proven evidence clients
+
+Goal: publish `v0.1.0-alpha.14`, packaging PRs #22, #24 and #25, and use Pilot 7's lesson live: decide, and prove at readiness, which tool reads each piece of acceptance evidence. The full records are in `agent-work/release-alpha14/`.
+
+What happened:
+
+- **Plan.** An independent plan review took two rounds.
+  - Round 1 found three Medium gaps, all in the new evidence rules:
+    - a re-read window that could be read as turning a mismatch into a pass;
+    - unclear rules for the two clients;
+    - checks with no named client.
+  - Round 2 approved. Its two Lows and a Nit were folded in before the owner approved revision 2.
+- **The evidence rules.** A table names a primary client for each check and at most one fallback. The fallback is used only when the primary returns no evidence. When both answer, they must agree. There is one 10-minute window. Evidence that fails a check is never re-read, and late evidence never turns a failure into a pass.
+- **Scaffold.** The scaffold review found two substitution errors carried over from the alpha.13 files: a version in a pattern, and a base SHA in a stop condition. Both were fixed before task A.
+- **Review.** The release review (B), on a different model from the builder, passed with two Lows.
+- **Readiness.** It passed, and every evidence read was proven on the alpha.13 release.
+  - Readiness found that the session's proxy authenticates `curl`, which the plan had called unauthenticated. This was recorded as a dated correction, and the contract's wording was fixed before it was hashed.
+  - The connection reports a 404 as an error that names the status, so a 404 counts as evidence.
+- **Live run.** The recheck was read clean, then one dispatch was made. Run 38527642533 took 18 seconds.
+- **Acceptance PASS.** Every check passed on its first read with its primary client; no repeat or fallback was needed. The downloaded ZIP and the API digest both equal the frozen hash, and the unpacked ZIP equals `git archive` of the source. The tag is lightweight at the source, and every other tag and release is unchanged.
+- **Helper labels.** As expected: `GATED`, `PREVIEW`, `READY`, then `DONE` with K `READY`.
+
+Findings and observations:
+
+1. **Copied task files.** Deriving a workflow's task files from the previous one by substitution left two stale values that only an independent review caught. *Suggested action:* the scaffold review checks every version, SHA and PR number against the plan.
+2. **What a client really is.** The evidence-client table named `curl` as unauthenticated, but the environment's proxy adds credentials. *Suggested action:* readiness records how each client authenticates, as this run did, rather than the plan assuming it.
+3. **Commit identity on GitHub merges.** A PR merged through GitHub's merge API is authored by the owner's account and email, whatever identity the branch used. Records now land by a local merge under the no-reply identity. *Suggested action:* `docs/ADOPTING.md` names this when it discusses commit identity.
+4. **Threat model cross-reference** (from B-1, pre-existing). "Out of scope" points to a "Proposed follow-up" section that does not exist. *Suggested action:* fix it in a later change.
+
 ## Current maturity
 
-The repository-only path has passed a controlled pilot. The deployment path has run six live workflows:
+The repository-only path has passed a controlled pilot. The deployment path has run seven live workflows:
 
 - Pilot 3: the success path, a GitHub prerelease;
 - Pilot 4: a rollback drill, with an owner-performed release and tag deletion;
 - Pilot 5: two in a first adopter project, the GitHub Pages success path and a Pages rollback drill (a coordinator redeploy of the previous commit);
 - Pilot 6: the success path again, `v0.1.0-alpha.13`, with the post-Pilot 5 rules;
-- Pilot 7: the first adopter upgrade, with failed acceptance and a verified coordinator rollback.
+- Pilot 7: the first adopter upgrade, with failed acceptance and a verified coordinator rollback;
+- Pilot 8: the success path, `v0.1.0-alpha.14`, with proven evidence clients.
 
 Pilot 5 is the first adoption by a newcomer in another repository. It exercised the fixes for Pilot 4's findings: J stayed `GATED` after the failed attempt, and records landed after a verified rollback. The tag-only and draft rollback rows, run cancellation, frozen-batch invalidation and a refused retry have still not been exercised live; for the retry boundary, only the helper's `GATED` label was observed.
 
-The framework should still be treated as experimental: six live workflows are not broad coverage, and Pilot 5's adoption findings show that the docs assume knowledge a newcomer does not have.
+The framework should still be treated as experimental: seven live workflows are not broad coverage, and Pilot 5's adoption findings show that the docs assume knowledge a newcomer does not have.
 
 The important pattern is deliberate: a pilot finding stops advancement, becomes a narrow validator/test repair, receives independent review, and only then is the same scenario retried.
