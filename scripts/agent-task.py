@@ -893,8 +893,11 @@ def print_task(phase: str, task_id: str, data: dict) -> None:
             print("Do not dispatch this live task; its required evidence or dependency gate is closed.")
             if status in DEFAULT_DEPENDENCY_SUCCESS_STATUSES:
                 print(f"Its status is {status}, but no runtime acceptance PASS is recorded for the readied source and fingerprint.")
-            elif status == "failed" or _attempts_unsuccessful(_live_attempts_since_readiness(data)):
+            elif _attempts_unsuccessful(_live_attempts_since_readiness(data)):
                 print("The latest live attempt failed; another attempt needs fresh readiness and a new approval.")
+            elif status == "failed":
+                print("The manifest records this live task as failed; another attempt needs fresh readiness, "
+                      "a new approval and its status reset to pending.")
             for problem in evidence_format_problems(data):
                 print(f"Format problem: {problem}")
         elif gate == "PREVIEW":

@@ -435,7 +435,7 @@ class WorkflowV3Tests(unittest.TestCase):
                 self.assertEqual(self.gate(manifest, records), "GATED")
                 label, view, ready = self.live_view(manifest, records)
                 self.assertEqual(label, "GATED")
-                self.assertIn("latest live attempt failed", view)
+                self.assertIn("manifest records this live task as failed", view)
                 self.assertNotIn("J  ", ready)
         # Fresh readiness does not reopen the gate while the manifest still says failed.
         evidence["records"].append(copy.deepcopy(evidence["records"][2]))
