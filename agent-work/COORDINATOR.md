@@ -23,6 +23,7 @@ Before dispatching work:
 7. Verify the workflow baseline and current repository state.
 8. Verify the plan is marked approved in the manifest.
 9. Inspect current branches/worktrees/remotes and preserve unrelated work.
+10. When taking over from another coordinator, check the commit identity (`git config user.name` and `user.email`) against the repository's rules before the first commit.
 
 For v3, validate the manifest's version and task graph before dispatch. A
 deployment graph must contain the declared independent review, optional

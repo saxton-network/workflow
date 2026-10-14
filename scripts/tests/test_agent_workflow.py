@@ -378,12 +378,18 @@ class WorkflowV3Tests(unittest.TestCase):
         manifest = self.deploy_manifest()
         evidence = self.evidence()
         evidence["records"][3].update(taskStatus="passed", runtimeAcceptance="PASS")
-        for status in ("blocked", "in_progress", "failed", "passed"):
+        for status in ("blocked", "in_progress", "passed"):
             manifest["status"]["J"] = status
             label, view, ready = self.live_view(manifest, evidence)
             self.assertEqual(label, "DONE", status)
             self.assertIn("Live gate: DONE", view)
             self.assertNotIn("J  ", ready)
+        # A manifest that says failed contradicts the passing record: nothing is offered, and K is not ready.
+        manifest["status"]["J"] = "failed"
+        label, view, ready = self.live_view(manifest, evidence)
+        self.assertEqual(label, "GATED")
+        self.assertNotIn("J  ", ready)
+        self.assertNotIn("K  ", ready)
         evidence["records"][3]["runtimeAcceptance"] = "FAIL"
         for status in ("blocked", "in_progress"):
             manifest["status"]["J"] = status
@@ -418,6 +424,24 @@ class WorkflowV3Tests(unittest.TestCase):
                                     "deploymentSourceSha": self.SOURCE,
                                     "frozenBatchFingerprint": evidence["records"][2]["frozenBatchFingerprint"]})
         self.assertEqual(self.gate(manifest, evidence), "READY")
+
+    def test_manifest_failed_status_closes_the_gate_without_a_failed_record(self) -> None:
+        manifest = self.deploy_manifest()
+        evidence = self.evidence()
+        self.assertEqual(self.gate(manifest, evidence), "READY")
+        for records in (evidence, self.evidence(approved=False)):
+            with self.subTest(approved=records is evidence):
+                manifest["status"]["J"] = "failed"
+                self.assertEqual(self.gate(manifest, records), "GATED")
+                label, view, ready = self.live_view(manifest, records)
+                self.assertEqual(label, "GATED")
+                self.assertIn("latest live attempt failed", view)
+                self.assertNotIn("J  ", ready)
+        # Fresh readiness does not reopen the gate while the manifest still says failed.
+        evidence["records"].append(copy.deepcopy(evidence["records"][2]))
+        self.assertEqual(self.gate(manifest, evidence), "GATED")
+        manifest["status"]["J"] = "pending"
+        self.assertEqual(self.gate(manifest, evidence), "PREVIEW")
 
     def test_rollback_waits_when_the_failed_attempt_changed_nothing_live(self) -> None:
         manifest = self.deploy_manifest()

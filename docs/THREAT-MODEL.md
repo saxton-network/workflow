@@ -70,9 +70,9 @@ These are recorded when found, not fixed, unless the owner changes this document
 
 The owner decides what this document says, approves releases, and approves each live change from its plain-language preview. Code review is done by agents that are independent of the builder; the owner is not asked to review code.
 
-## Findings open at the time of writing
+## Historical: findings from the `v0.1.0-alpha.9` review
 
-From the independent review of PR #10 (`329f5ff`, `v0.1.0-alpha.9`):
+From the independent review of PR #10 (`329f5ff`, `v0.1.0-alpha.9`). All are resolved or classified; the table is kept as a record, not as a list of open findings:
 
 | Finding | Classification |
 | --- | --- |

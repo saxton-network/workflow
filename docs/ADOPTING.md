@@ -38,7 +38,7 @@ Add an `ADOPTION.md` with one table row per copied file:
 | `agent-work/README.md` | `<40-hex Workflow commit>` | `<64-hex SHA-256>` |
 ~~~
 
-Write each row in exactly this form, with a lower-case SHA-256. Any line that carries a backticked 64-character hex value is read as a hash row, so other tables (for example a "not copied" list) must not contain one. Your gate (section 5) fails when a copied file drifts from its row. To upgrade, copy the files from a newer commit, update every row, and review the change like any other.
+Write each row in exactly this form, with a lower-case SHA-256. Any line that carries a backticked 64-character hex value is read as a hash row, so other tables (for example a "not copied" list) must not contain one. Your gate (section 5) fails when a copied file drifts from its row. If your gate already uses another row form (Pilot 5's adopter added a source-path column), keep it and note the difference in `ADOPTION.md` rather than changing a working gate. To upgrade, copy the files from a newer commit, update every row, and review the change like any other.
 
 ## 3. Write `AGENTS.md`
 
@@ -50,6 +50,9 @@ Start from Workflow's `AGENTS.md`:
 - Drop Workflow's sentence about its own `release.yml`.
 
 Add your repository's rules, for example a content rule for a public site. If a content rule forbids naming people or email addresses, say whether the mandated commit identity and `Co-Authored-By` trailers are exempt. Pilot 5 had to ask the owner.
+
+- **Write the answer next to the rule, in `AGENTS.md`.** An owner decision that interprets a rule belongs beside that rule. Pilot 5 recorded its answer only in the adoption log; in Pilot 7 a reviewer read the rule as written, reported the trailers as a violation, and the repair worked against the owner's decision. If decisions also live in `ADOPTION.md`, list them in every review briefing.
+- **Say which commit identity to use, without naming anyone.** For example: "the configured no-reply identity, never a personal one". "Whatever identity is configured" depends on the machine: in Pilot 7 a coordinator handover changed the author identity on a public repository. Whoever takes over checks `git config user.name` and `user.email` against the rule before the first commit.
 
 Changing repository or hosting settings (turning on GitHub Pages, branch protection, secrets) is a live change. It needs its own bounded preview and explicit approval.
 
@@ -152,5 +155,5 @@ Workflow's examples are written around releases and hosts. For a site published 
 - **Runtime acceptance.**
   - Fetch the live bytes with a cache-busting query (`curl -sS --compressed '<url>/?cb=<nonce>'`) and compare SHA-256. Retry for a bounded window to cover CDN propagation.
   - Never use a tool that returns converted text instead of bytes.
-- **Evidence of what is live.** Have the deploy job log the checked-out commit and the file hash. Host deployment labels may name the triggering ref's tip rather than the deployed input. On GitHub Pages, `pages_build_version` is `main`'s tip on a dispatch, so it is not evidence of the live commit.
+- **Evidence of what is live.** Have the deploy job log the checked-out commit and the file hash. At readiness, prove that the coordinator can read a recent deploy job's log with the client it will use at acceptance, and say in the contract whether a second read-only client may be used within the acceptance window. In Pilot 7 one client got `Forbidden` on the log and another could read it; acceptance failed and a correct deploy was rolled back. Reading the same evidence again is not a retry of the live batch, but evidence read after a failed check never turns the failed attempt into a pass. Host deployment labels may name the triggering ref's tip rather than the deployed input. On GitHub Pages, `pages_build_version` is `main`'s tip on a dispatch, so it is not evidence of the live commit.
 - **Turning on the host feature** is a settings change with its own preview and approval (section 3).
