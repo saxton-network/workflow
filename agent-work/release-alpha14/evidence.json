@@ -301,6 +301,54 @@
         "sha256": "8ec1b22cd97d10e1873ed9dfa83a37fa58f036914452f1af6508564215748f3c"
       },
       "runtimeAcceptance": "PASS"
+    },
+    {
+      "taskId": "K",
+      "attempt": 1,
+      "role": "final_reconciliation",
+      "model": null,
+      "branch": "pilot/alpha14-records",
+      "worktree": null,
+      "baseSha": "02c771a7c7d71e2303c186d0c150e903a524e949",
+      "candidateSha": "02c771a7c7d71e2303c186d0c150e903a524e949",
+      "deploymentSourceSha": "02c771a7c7d71e2303c186d0c150e903a524e949",
+      "taskStatus": "complete",
+      "readinessVerdict": null,
+      "startedAt": null,
+      "completedAt": null,
+      "changedPaths": [],
+      "reviewFindingIds": [],
+      "approvalReference": null,
+      "validation": [
+        {
+          "checkId": "refs-and-release",
+          "inputFingerprint": null,
+          "validatorSha256": null,
+          "exitCode": 0,
+          "verdict": "PASS",
+          "recordedAt": null,
+          "evidencePath": "agent-work/release-alpha14/results/K.md"
+        },
+        {
+          "checkId": "secrets-scan",
+          "inputFingerprint": null,
+          "validatorSha256": null,
+          "exitCode": 0,
+          "verdict": "PASS",
+          "recordedAt": null,
+          "evidencePath": "agent-work/release-alpha14/results/K.md"
+        }
+      ],
+      "evidence": [
+        {
+          "path": "agent-work/release-alpha14/results/K.md",
+          "sha256": "cf4bf094e86294fe1c2fee5a3a239fd1a495e443faf89650f22684ab05d14d35"
+        }
+      ],
+      "helper": {
+        "path": "scripts/agent-task.py",
+        "sha256": "8ec1b22cd97d10e1873ed9dfa83a37fa58f036914452f1af6508564215748f3c"
+      }
     }
   ]
 }
