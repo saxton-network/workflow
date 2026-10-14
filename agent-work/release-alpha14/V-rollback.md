@@ -6,7 +6,7 @@
 ## Work
 
 1. Make sure the run is `completed` (cancel and wait if not).
-2. Read the actual state (tag via API and `git ls-remote`; releases via the authenticated list, drafts included) and follow the matching row of the matrix.
+2. Read the actual state (tag via API and `git ls-remote`; releases via the authenticated list, drafts included), with the clients `CONTRACT.md` "Evidence clients" names, and follow the matching row of the matrix.
 3. Give the owner one deletion at a time with the exact link; after the owner reports it done, verify it through the API before the next. Never ask the owner to act on any other release or tag; if anything else differs from the baseline, stop and ask.
 4. Keep the read-only check-ins that J scheduled running until the final verification; then switch them off.
 5. Final verification as `CONTRACT.md` lists it; end state "stopped after verified rollback".

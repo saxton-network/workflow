@@ -1,6 +1,6 @@
 # Contract: release-alpha14
 
-Frozen from task R onward. Changing it after R needs fresh readiness and a new owner approval. Copied from `PLAN.md` "Contract" (revision 2 with its dated clarifications, approved).
+Frozen from task R onward. Changing it after R needs fresh readiness and a new owner approval. Copied from `PLAN.md` "Contract" (revision 2 as the owner approved it).
 
 ## Source and live change
 

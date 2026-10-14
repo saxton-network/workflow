@@ -14,7 +14,7 @@ As `PLAN.md` "Readiness checks (R)" lists them:
 - **evidence access** (`CONTRACT.md` "Evidence clients"): every row read on the latest earlier `release.yml` run and the alpha.13 release, with its primary client and, where it has one, its fallback client, and the two agree; the `curl` downloads of alpha.13's ZIP and `.sha256`, hashed against their known digests; the API `digest` field for both alpha.13 assets; `curl`'s `X-RateLimit-Remaining` against the planned request count; the job log read once as a diagnostic. A read that cannot be proven is a stop condition;
 - tools: workflow dispatch present but not exercised; run cancel present but not exercised; the GitHub identity and local git version recorded;
 - ZIP built twice, byte-identical; alpha.13's published ZIP reproduced from `84d826a`;
-- `results/R-expected-checksum.txt` made as `release.yml` makes it, matching `^[0-9a-f]{64}  workflow-v0\.1\.0-alpha\.13\.zip\n$`;
+- `results/R-expected-checksum.txt` made as `release.yml` makes it, matching `^[0-9a-f]{64}  workflow-v0\.1\.0-alpha\.14\.zip\n$`;
 - `results/R-baseline.json`: every tag with target, every release (drafts included) with ID, tag, flags and publish time, alpha.13's asset digests, the latest `release.yml` run ID.
 
 ## Frozen batch
