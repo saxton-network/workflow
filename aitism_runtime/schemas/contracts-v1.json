@@ -1,0 +1,854 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aitism.invalid/experimental/contracts-v1.json",
+  "$defs": {
+    "task_spec": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "[A-Za-z][A-Za-z0-9_-]{0,63}"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "build",
+            "review",
+            "validate"
+          ]
+        },
+        "depends_on": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "[A-Za-z][A-Za-z0-9_-]{0,63}"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "subject": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "[A-Za-z][A-Za-z0-9_-]{0,63}"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "branch": {
+          "type": "string",
+          "pattern": "sim/[A-Za-z][A-Za-z0-9_-]{0,63}/[A-Za-z][A-Za-z0-9_-]{0,63}"
+        },
+        "worktree": {
+          "type": "string",
+          "pattern": "sim/[A-Za-z][A-Za-z0-9_-]{0,63}/[A-Za-z][A-Za-z0-9_-]{0,63}"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "depends_on",
+        "subject",
+        "branch",
+        "worktree"
+      ],
+      "additionalProperties": false
+    },
+    "plan": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "workflow_id": {
+          "type": "string",
+          "pattern": "[A-Za-z][A-Za-z0-9_-]{0,63}"
+        },
+        "objective": {
+          "type": "string",
+          "minLength": 1
+        },
+        "scope": {
+          "const": "simulation"
+        },
+        "source_sha": {
+          "type": "string",
+          "pattern": "[0-9a-f]{40}|[0-9a-f]{64}"
+        },
+        "source_branch": {
+          "const": "experimental/features"
+        },
+        "terminal_task": {
+          "type": "string",
+          "pattern": "[A-Za-z][A-Za-z0-9_-]{0,63}"
+        },
+        "requirements": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "assumptions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "architecture": {
+          "type": "string",
+          "minLength": 1
+        },
+        "roles": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "review_strategy": {
+          "type": "string",
+          "minLength": 1
+        },
+        "test_strategy": {
+          "type": "string",
+          "minLength": 1
+        },
+        "estimates": {
+          "type": "object",
+          "properties": {
+            "max_tokens": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "max_attempts": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "lease_seconds": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "max_tokens",
+            "max_attempts",
+            "lease_seconds"
+          ],
+          "additionalProperties": false
+        },
+        "risks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "classification": {
+                "type": "string",
+                "enum": [
+                  "low",
+                  "medium",
+                  "high"
+                ]
+              },
+              "description": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "classification",
+              "description"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "approval_checkpoints": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "tasks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/task_spec"
+          },
+          "minItems": 3,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "schema_version",
+        "workflow_id",
+        "objective",
+        "scope",
+        "source_sha",
+        "source_branch",
+        "terminal_task",
+        "requirements",
+        "assumptions",
+        "architecture",
+        "roles",
+        "review_strategy",
+        "test_strategy",
+        "estimates",
+        "risks",
+        "approval_checkpoints",
+        "tasks"
+      ],
+      "additionalProperties": false
+    },
+    "usage": {
+      "type": "object",
+      "properties": {
+        "input_tokens": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "output_tokens": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "cost_microusd": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "input_tokens",
+        "output_tokens",
+        "cost_microusd"
+      ],
+      "additionalProperties": false
+    },
+    "request": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "workflow_id": {
+          "type": "string",
+          "pattern": "[A-Za-z][A-Za-z0-9_-]{0,63}"
+        },
+        "task_id": {
+          "type": "string",
+          "pattern": "[A-Za-z][A-Za-z0-9_-]{0,63}"
+        },
+        "attempt": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "lease": {
+          "type": "string",
+          "pattern": "[0-9a-f]{64}"
+        },
+        "plan_hash": {
+          "type": "string",
+          "pattern": "[0-9a-f]{64}"
+        },
+        "source_sha": {
+          "type": "string",
+          "pattern": "[0-9a-f]{40}|[0-9a-f]{64}"
+        },
+        "subject_hash": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "[0-9a-f]{64}"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "objective": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "build",
+            "review",
+            "validate"
+          ]
+        },
+        "model": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "schema_version",
+        "workflow_id",
+        "task_id",
+        "attempt",
+        "lease",
+        "plan_hash",
+        "source_sha",
+        "subject_hash",
+        "objective",
+        "kind",
+        "model"
+      ],
+      "additionalProperties": false
+    },
+    "result": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "workflow_id": {
+          "type": "string",
+          "pattern": "[A-Za-z][A-Za-z0-9_-]{0,63}"
+        },
+        "task_id": {
+          "type": "string",
+          "pattern": "[A-Za-z][A-Za-z0-9_-]{0,63}"
+        },
+        "attempt": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "lease": {
+          "type": "string",
+          "pattern": "[0-9a-f]{64}"
+        },
+        "plan_hash": {
+          "type": "string",
+          "pattern": "[0-9a-f]{64}"
+        },
+        "source_sha": {
+          "type": "string",
+          "pattern": "[0-9a-f]{40}|[0-9a-f]{64}"
+        },
+        "subject_hash": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "[0-9a-f]{64}"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "provider": {
+          "type": "string",
+          "minLength": 1
+        },
+        "model": {
+          "type": "string",
+          "minLength": 1
+        },
+        "verdict": {
+          "type": "string",
+          "enum": [
+            "PASS",
+            "FAIL",
+            "UNKNOWN"
+          ]
+        },
+        "artifact": {
+          "type": "object"
+        },
+        "artifact_hash": {
+          "type": "string",
+          "pattern": "[0-9a-f]{64}"
+        },
+        "usage": {
+          "$ref": "#/$defs/usage"
+        }
+      },
+      "required": [
+        "schema_version",
+        "workflow_id",
+        "task_id",
+        "attempt",
+        "lease",
+        "plan_hash",
+        "source_sha",
+        "subject_hash",
+        "provider",
+        "model",
+        "verdict",
+        "artifact",
+        "artifact_hash",
+        "usage"
+      ],
+      "additionalProperties": false
+    },
+    "lease": {
+      "type": "object",
+      "properties": {
+        "token": {
+          "type": "string",
+          "pattern": "[0-9a-f]{64}"
+        },
+        "expires_at": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "heartbeat_at": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "token",
+        "expires_at",
+        "heartbeat_at"
+      ],
+      "additionalProperties": false
+    },
+    "checkpoint": {
+      "type": "object",
+      "properties": {
+        "task": {
+          "type": "string",
+          "pattern": "[A-Za-z][A-Za-z0-9_-]{0,63}"
+        },
+        "attempt": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "lease": {
+          "type": "string",
+          "pattern": "[0-9a-f]{64}"
+        },
+        "data": {
+          "type": "object"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "[0-9a-f]{64}"
+        }
+      },
+      "required": [
+        "task",
+        "attempt",
+        "lease",
+        "data",
+        "sha256"
+      ],
+      "additionalProperties": false
+    },
+    "attempt": {
+      "type": "object",
+      "properties": {
+        "attempt": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "lease": {
+          "type": "string",
+          "pattern": "[0-9a-f]{64}"
+        },
+        "started_at": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "finished_at": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "running",
+            "complete",
+            "passed",
+            "failed",
+            "cancelled"
+          ]
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "result": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/result"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "attempt",
+        "lease",
+        "started_at",
+        "finished_at",
+        "status",
+        "reason",
+        "result"
+      ],
+      "additionalProperties": false
+    },
+    "task": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "pending",
+            "running",
+            "complete",
+            "passed",
+            "failed",
+            "cancelled"
+          ]
+        },
+        "agent": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "[A-Za-z][A-Za-z0-9_-]{0,63}"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "attempt": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "lease": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/lease"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "checkpoint": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/checkpoint"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "result": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/result"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "history": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/attempt"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "status",
+        "agent",
+        "attempt",
+        "lease",
+        "checkpoint",
+        "result",
+        "history"
+      ],
+      "additionalProperties": false
+    },
+    "agent": {
+      "type": "object",
+      "properties": {
+        "role": {
+          "type": "string",
+          "enum": [
+            "builder",
+            "reviewer",
+            "validator"
+          ]
+        },
+        "parent": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "[A-Za-z][A-Za-z0-9_-]{0,63}"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "created_by": {
+          "const": "human"
+        },
+        "created_at": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "last_activity": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "idle",
+            "running",
+            "stopped"
+          ]
+        },
+        "task": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "[A-Za-z][A-Za-z0-9_-]{0,63}"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "provider": {
+          "const": "mock"
+        },
+        "model": {
+          "type": "string",
+          "minLength": 1
+        },
+        "usage": {
+          "$ref": "#/$defs/usage"
+        }
+      },
+      "required": [
+        "role",
+        "parent",
+        "created_by",
+        "created_at",
+        "last_activity",
+        "state",
+        "task",
+        "provider",
+        "model",
+        "usage"
+      ],
+      "additionalProperties": false
+    },
+    "approval": {
+      "type": "object",
+      "properties": {
+        "scope": {
+          "const": "simulation"
+        },
+        "plan_hash": {
+          "type": "string",
+          "pattern": "[0-9a-f]{64}"
+        },
+        "reference": {
+          "type": "string",
+          "minLength": 1
+        },
+        "actor": {
+          "const": "human"
+        },
+        "at": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "scope",
+        "plan_hash",
+        "reference",
+        "actor",
+        "at"
+      ],
+      "additionalProperties": false
+    },
+    "state": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "plan": {
+          "$ref": "#/$defs/plan"
+        },
+        "plan_hash": {
+          "type": "string",
+          "pattern": "[0-9a-f]{64}"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "draft",
+            "approved",
+            "running",
+            "completed",
+            "failed",
+            "cancelled"
+          ]
+        },
+        "approval": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/approval"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "agents": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/agent"
+          }
+        },
+        "tasks": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/task"
+          }
+        },
+        "usage": {
+          "$ref": "#/$defs/usage"
+        },
+        "reserved_tokens": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "schema_version",
+        "plan",
+        "plan_hash",
+        "status",
+        "approval",
+        "agents",
+        "tasks",
+        "usage",
+        "reserved_tokens"
+      ],
+      "additionalProperties": false
+    },
+    "event": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "workflow_id": {
+          "type": "string",
+          "pattern": "[A-Za-z][A-Za-z0-9_-]{0,63}"
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "operation": {
+          "type": "string",
+          "enum": [
+            "create",
+            "approve",
+            "enroll",
+            "claim",
+            "finish",
+            "heartbeat",
+            "checkpoint",
+            "recover",
+            "retry",
+            "cancel"
+          ]
+        },
+        "actor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "at": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "previous_hash": {
+          "type": "string",
+          "pattern": "[0-9a-f]{64}"
+        },
+        "state": {
+          "$ref": "#/$defs/state"
+        }
+      },
+      "required": [
+        "schema_version",
+        "workflow_id",
+        "sequence",
+        "operation",
+        "actor",
+        "at",
+        "previous_hash",
+        "state"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

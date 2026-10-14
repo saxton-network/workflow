@@ -5,6 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
 python3 -m compileall -q scripts
+python3 -m compileall -q aitism_runtime
 python3 -B -m unittest discover -s scripts/tests -p 'test_*.py'
 
 python3 - <<'PY'

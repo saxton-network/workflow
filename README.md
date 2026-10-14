@@ -113,6 +113,12 @@ The live gate has four helper states:
 
 docs/AGENT-LIFECYCLE-AND-OBSERVABILITY.md sets design requirements for future Workflow-managed agents: durable identity and lineage, bounded delegation, attributable resource use, and fail-closed orphan handling. These are forward-looking requirements. The current helper is read-only and enforces none of them; differences are tracked as implementation debt.
 
+An isolated mock-only AItism runtime foundation is available on the experimental
+branch. See [the runtime guide](aitism_runtime/README.md) and
+[Task 001 design](docs/experimental/TASK-001-DESIGN.md). It uses separate versioned
+state and a local SQLite journal; it does not execute source changes, convert
+existing manifests, grant deployment authority, or replace the read-only helper.
+
 ## Evidence
 
 Workflow v3 uses a compact coordinator-owned evidence.json. Detailed logs and reports remain separate and are linked by path plus SHA-256. Failed attempts are preserved. Frozen deployment batches explicitly bind deployment destinations and mode metadata, so a changed target invalidates readiness and approval. Credentials, bearer values, private keys, secret-bearing bodies, and chat transcripts do not belong in the index.

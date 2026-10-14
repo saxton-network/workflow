@@ -1,0 +1,5 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aitism.invalid/experimental/plan-v1.json",
+  "$ref": "contracts-v1.json#/$defs/plan"
+}
