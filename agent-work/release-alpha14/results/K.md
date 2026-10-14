@@ -9,7 +9,7 @@ These reads come after acceptance, so the repeat window does not apply to them.
 - **`main`:** equals the source `02c771a7c7d71e2303c186d0c150e903a524e949` (`git ls-remote`). It is unchanged since readiness, and the main freeze has ended.
 - **The tag:** `v0.1.0-alpha.14` is a lightweight ref at the source (`git ls-remote`; the connection and `curl` agreed in J).
 - **The release:** 412438638 is published (not a draft) and is a prerelease. Its two assets have the frozen digests: `sha256:1b87fa4a…8355` for the ZIP and `sha256:54426f84…5f99` for the `.sha256` file.
-- **Everything else:** every other tag and release equals `R-baseline.json` (checked in J at 07:20:53Z).
+- **Everything else:** every other tag and release equals `R-baseline.json` (checked in J).
 
 ## Secrets and privacy scan
 

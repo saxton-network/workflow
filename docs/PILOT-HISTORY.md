@@ -304,9 +304,17 @@ What happened:
 Findings and observations:
 
 1. **Copied task files.** Deriving a workflow's task files from the previous one by substitution left two stale values that only an independent review caught. *Suggested action:* the scaffold review checks every version, SHA and PR number against the plan.
-2. **What a client really is.** The evidence-client table named `curl` as unauthenticated, but the environment's proxy adds credentials. *Suggested action:* readiness records how each client authenticates, as this run did, rather than the plan assuming it.
-3. **Commit identity on GitHub merges.** A PR merged through GitHub's merge API is authored by the owner's account and email, whatever identity the branch used. Records now land by a local merge under the no-reply identity. *Suggested action:* `docs/ADOPTING.md` names this when it discusses commit identity.
+2. **What a client really is.** The evidence-client table named `curl` as unauthenticated, but the environment's proxy adds credentials. `curl` authenticates as the same account as the connection, so the fallback is a different program and request path, not a different identity: it guards against a tool fault, not an account-level permission denial. *Suggested action:* readiness records how each client authenticates, as this run did, rather than the plan assuming it.
+3. **Commit identity on GitHub merges.** A PR merged through GitHub's merge API is authored by the owner's account and email, whatever identity the branch used. PRs #24 and #25 were merged this way, so their two merge commits carry the owner's account name and email in the public history; removing them would mean rewriting `main`, which needs the owner's decision. Records now land by a local merge under the no-reply identity. *Suggested action:* `docs/ADOPTING.md` names this when it discusses commit identity.
 4. **Threat model cross-reference** (from B-1, pre-existing). "Out of scope" points to a "Proposed follow-up" section that does not exist. *Suggested action:* fix it in a later change.
+
+Not exercised, because the run succeeded:
+
+- the fallback client and the re-read window;
+- `liveStateChanged`;
+- the rollback matrix;
+- the repair-round reset;
+- the recheck-failure and dispatch-error paths.
 
 ## Current maturity
 
