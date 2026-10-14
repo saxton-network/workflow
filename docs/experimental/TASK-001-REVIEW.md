@@ -1,9 +1,10 @@
 # Task 001 review packet
 
-Status: implementation prepared for independent review. The implementation is
-experimental and repository-only. This packet does not self-certify review or
-grant release/deployment authority. Review results and exact candidate identity
-will be recorded separately after a read-only review.
+Status: separate non-builder review and re-review recorded in
+[the implementation result](TASK-001-RESULT.md). The implementation is experimental
+and repository-only. Observed reviewer model identity was unavailable; different
+model/vendor independence cannot be certified. This packet grants no release or
+deployment authority. The demo's mock review is separate from actual source review.
 
 ## Scope and decisions
 
