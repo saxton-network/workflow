@@ -58,6 +58,11 @@ These are recorded when found, not fixed, unless the owner changes this document
   - High: an in-scope path to `READY` or final reconciliation with the wrong source, fingerprint, or approval.
   - Medium: an in-scope path to `READY` through ambiguous evidence; a crash on input a coordinator could plausibly produce; a documented procedure that yields wrong evidence.
   - Low: rejecting legitimate evidence; docs and code disagreeing without a path to `READY`; weak tests.
+- **Guard validators.** This rule covers a project's own content guards, such as a site check that a page names nothing private. It does not cover the helper's evidence parsing, which in-scope items 1–4 govern.
+  - These guards check content that trusted builders write, and guard against honest mistakes.
+  - **Out of scope:** a finding that needs content deliberately crafted to slip past the guard, written in a way no one would write it for an honest reason. Examples are an entity-encoded name, or a name split across markup to hide it. This falls under "A malicious or colluding agent". Record it in the PR description; do not extend the guard round after round. A later batch may extend it at the owner's discretion.
+  - **In scope, and fixed:** a guard that misses an ordinary way of writing the forbidden content (item 5 by analogy). That includes copy-paste artifacts such as a non-breaking hyphen, a soft hyphen or a smart quote, which are ordinary.
+  - **When unsure** whether an honest author could plausibly produce the content (for example, a look-alike letter from an input method or a pasted web page), record it as a Low in the PR description and ask the owner.
 - **When to stop.** A review round is clean when it has no in-scope High or Medium finding. Low findings are fixed in batches. Out-of-scope findings go in the PR description, not into code.
 - **When to release.** A release follows a clean review, not every fix.
 

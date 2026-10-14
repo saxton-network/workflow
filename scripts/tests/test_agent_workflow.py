@@ -419,6 +419,46 @@ class WorkflowV3Tests(unittest.TestCase):
                                     "frozenBatchFingerprint": evidence["records"][2]["frozenBatchFingerprint"]})
         self.assertEqual(self.gate(manifest, evidence), "READY")
 
+    def test_rollback_waits_when_the_failed_attempt_changed_nothing_live(self) -> None:
+        manifest = self.deploy_manifest()
+        manifest["tasks"]["V"] = self.task("other", ["J"], required_status={"J": "failed"})
+        manifest["status"].update(J="failed", V="blocked")
+        agent_task.validate_manifest(manifest)
+        evidence = self.evidence()
+        evidence["records"][3].update(taskStatus="failed", runtimeAcceptance="FAIL")
+
+        def rollback_view(value: object) -> tuple[bool, str, str]:
+            records = copy.deepcopy(evidence)
+            if value != "absent":
+                records["records"][3]["liveStateChanged"] = value
+            with tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                path = root / manifest["workflow"]["evidence_manifest"]
+                path.parent.mkdir(parents=True)
+                path.write_text(json.dumps(records), encoding="utf-8")
+                with patch.object(agent_task, "ROOT", root):
+                    view, ready = io.StringIO(), io.StringIO()
+                    with redirect_stdout(view):
+                        agent_task.print_task("example", "V", manifest)
+                    with redirect_stdout(ready):
+                        agent_task.print_ready(manifest)
+                    return agent_task.task_ready("V", manifest), view.getvalue(), ready.getvalue()
+
+        ready, view, listing = rollback_view(False)
+        self.assertFalse(ready)
+        self.assertIn("no rollback is needed", view)
+        self.assertNotIn("V  ", listing)
+        # Only an explicit false holds the rollback back; anything else leaves it to the contract.
+        for value in (True, None, "absent", "false", 0):
+            with self.subTest(liveStateChanged=value):
+                ready, view, listing = rollback_view(value)
+                self.assertTrue(ready)
+                self.assertNotIn("no rollback is needed", view)
+        # The latest live record decides: a later attempt that did change live state reopens the rollback.
+        evidence["records"][3]["liveStateChanged"] = False
+        evidence["records"].append(dict(evidence["records"][3], liveStateChanged=True))
+        self.assertTrue(rollback_view("absent")[0])
+
     def test_any_unsuccessful_attempt_closes_the_gate(self) -> None:
         manifest = self.deploy_manifest()
         # Realistic order: the approval record, then the attempt's outcome.

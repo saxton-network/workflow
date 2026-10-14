@@ -8,6 +8,8 @@ The lifecycle begins with a plan, independent plan review, and user approval. On
 
 Each workflow lives under `agent-work/<workflow-id>/` with `PLAN.md`, `manifest.toml`, one task file per task, and `results/README.md`. Include `CONTRACT.md` when behavior, security, or data contracts need freezing. Compile the scaffold on an isolated branch, validate and independently review it, then run it. Use lettered task IDs when practical. Task files state prerequisites, exact base and branch, owned paths, required reading and validation, result evidence using `agent-work/RESULT-TEMPLATE.md` unless stricter, forbidden work, and a stop boundary. Use one branch/worktree per mutating agent. Prefer independent parallel tasks and put shared files in a foundation or integration task.
 
+The approved plan governs the compiled task files. A task file may make a plan's check stricter, or replace a proof the environment cannot produce with an equal or stronger one. For example, if the plan's unauthenticated status-code probe is blocked, a task file may read the repository's `private` field through an authenticated call instead. Record each such difference as a dated note in the plan's clarifications before the task runs. The next independent review checks it: the scaffold review for differences found at compile time, the following review for differences found mid-run. The next owner preview lists it. A task file that weakens a plan's check, widens its scope, or changes a live batch needs a revised plan and fresh approval.
+
 The coordinator owns shared status and advancement. Child agents stop at their task boundary. Builder and reviewer roles remain independent; findings go to a repair role and back to an independent re-review. Preserve failed attempts and their evidence.
 
 ## Version and task graph
@@ -151,7 +153,16 @@ The coordinator owns a compact machine-readable evidence index defined in `agent
 
 ## Failed live attempts and drills
 
-When runtime acceptance fails, the live task stops, is recorded `failed` with `runtimeAcceptance: "FAIL"`, and the approved rollback runs. A deployment graph may declare a task of kind `other` that depends on the live task with `required_status = {<live task> = "failed"}` to perform and verify the rollback and land the records. The final-reconciliation task never becomes ready in that case. The workflow then ends **stopped after verified rollback**: it is reported as such, never as complete. A retry is a new readiness and approval cycle.
+Three cases come before any rollback:
+
+- **The pre-dispatch recheck fails** (the authority ref moved, a frozen hash differs, the live baseline is not the expected one). Dispatch nothing. Leave the live task `in_progress`, stop, and ask the owner. Do not record it `failed`, because that would make a rollback task ready although nothing changed. The helper may still show the live task `READY`, because the approval record is intact. That approval was not used, but if any input changed it cannot be reused: a fresh readiness record starts a new attempt, which needs a new approval.
+- **A dispatch call errors, or no single new run appears.** Never dispatch again. Re-list the runs for a bounded window, such as two minutes. If there is still no single new run, stop and ask the owner.
+- **Recording what changed.** Every failed live-attempt record carries `liveStateChanged`:
+  - `true` when the attempt may have changed live state, for example when a dispatch was accepted and its run reached the step that publishes;
+  - `false` when it certainly did not, with a one-line reason or an evidence path in the result, for example "the run failed before its publishing step started";
+  - `null` when that is unknown.
+
+When runtime acceptance fails, the live task stops, is recorded `failed` with `runtimeAcceptance: "FAIL"`, and the approved rollback runs. If the latest live-attempt record says `liveStateChanged: false`, there is nothing to roll back. The helper then keeps the rollback task from being ready, and the coordinator records it `failed` with "rollback not needed" and asks the owner how to continue. Unknown counts as changed: the rollback runs within its contract. A deployment graph may declare a task of kind `other` that depends on the live task with `required_status = {<live task> = "failed"}` to perform and verify the rollback and land the records. The final-reconciliation task never becomes ready in that case. The workflow then ends **stopped after verified rollback**: it is reported as such, never as complete. A retry is a new readiness and approval cycle.
 
 A **drill** deliberately makes one acceptance check fail to exercise this path. The failure is allowed only as a declared exception in the drill's contract, approved by the owner. The contract must:
 

@@ -174,7 +174,9 @@ defines its deployment authority under `AGENTS.md`.
    revised preview, and obtain a new explicit `y/n`.
 6. Execute the proven batch. Record any stop after dispatch, including a cancel or an interrupted run, as `failed` with `runtimeAcceptance: "FAIL"`, never as `blocked` or `pending`. On the first failed required runtime check, stop,
    restore the known-good state within the approved rollback boundary, and
-   verify restoration. Preserve the failed attempt. Do not invent a new
+   verify restoration. Record `liveStateChanged` on a failed attempt
+   (`WORKFLOW-SPEC.md` "Failed live attempts and drills"); a failed pre-dispatch
+   recheck dispatches nothing and leaves the live task `in_progress`. Preserve the failed attempt. Do not invent a new
    required validator during production mutation.
 7. Run `final_reconciliation` only after live runtime acceptance. Keep the
    deployed reviewed source distinct from later canonical descendants.
