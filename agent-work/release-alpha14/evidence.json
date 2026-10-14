@@ -72,6 +72,160 @@
         "path": "scripts/agent-task.py",
         "sha256": "8ec1b22cd97d10e1873ed9dfa83a37fa58f036914452f1af6508564215748f3c"
       }
+    },
+    {
+      "taskId": "R",
+      "attempt": 1,
+      "role": "release_readiness",
+      "model": null,
+      "branch": "pilot/alpha14-records",
+      "worktree": null,
+      "baseSha": "02c771a7c7d71e2303c186d0c150e903a524e949",
+      "candidateSha": "02c771a7c7d71e2303c186d0c150e903a524e949",
+      "deploymentSourceSha": "02c771a7c7d71e2303c186d0c150e903a524e949",
+      "taskStatus": "complete",
+      "readinessVerdict": "PASS",
+      "startedAt": null,
+      "completedAt": null,
+      "changedPaths": [],
+      "reviewFindingIds": [],
+      "approvalReference": null,
+      "rollbackArtifact": {
+        "identity": "github-release-v0.1.0-alpha.13",
+        "provenance": "agent-work/release-alpha14/results/R-rollback-alpha13.md"
+      },
+      "frozenBatch": {
+        "deploymentSourceSha": "02c771a7c7d71e2303c186d0c150e903a524e949",
+        "deployableArtifactSha256": "1b87fa4a7034e58efaf0c8479b93bb82d4d3bad2c8fb3b467da4f27627d98355",
+        "deploymentConfiguration": [
+          {
+            "path": ".github/workflows/release.yml",
+            "sha256": "57c20477be82406b9053d9945d48ac53e5bad8a11068d38b72c2d25c21da9562"
+          },
+          {
+            "path": "agent-work/release-alpha14/results/R-dispatch-inputs.json",
+            "sha256": "4c28473f304ccdd3ee2ab63a9abbd8adcc2fd3957bd5e29a2caed41cc5ef90e3"
+          },
+          {
+            "path": "agent-work/release-alpha14/results/R-expected-checksum.txt",
+            "sha256": "54426f84ac978f86c18dafe06fc21346ec4838e75f9742b65b466c2fa5305f99"
+          },
+          {
+            "path": "agent-work/release-alpha14/results/R-settings.json",
+            "sha256": "61abd035b63518eb1d2fbc0fff10b607f7b7fe9cf869b48da95cc5daf9fe44d3"
+          },
+          {
+            "path": "agent-work/release-alpha14/CONTRACT.md",
+            "sha256": "5bdda18bde8839e1f79f4a788a61a7174a559962d3eea2dbb7d3375837b3f765"
+          }
+        ],
+        "validators": [
+          {
+            "path": "scripts/validate-repository.sh",
+            "sha256": "45eba69bf41f17ca4d1ea646e4d4bc8e3bcd1cf407a8ae3b698effe1032a2ebe"
+          },
+          {
+            "path": "scripts/check-release-version.sh",
+            "sha256": "939911f6527179a3171d5e1f1db222b37af2d477ab8d1d396a9ce74426a8c075"
+          },
+          {
+            "path": "scripts/agent-task.py",
+            "sha256": "8ec1b22cd97d10e1873ed9dfa83a37fa58f036914452f1af6508564215748f3c"
+          },
+          {
+            "path": "scripts/tests/test_agent_workflow.py",
+            "sha256": "d4c60b087a1ab5717303f7c13c6b8d5384dade9c30d686c4d15a6fbe2cf4ceb4"
+          }
+        ],
+        "rollbackArtifact": {
+          "identity": "github-release-v0.1.0-alpha.13",
+          "provenance": "agent-work/release-alpha14/results/R-rollback-alpha13.md"
+        },
+        "installedScripts": [],
+        "deploymentTargets": [
+          {
+            "destination": "https://github.com/saxton-network/workflow/releases/tag/v0.1.0-alpha.14",
+            "mode": null
+          },
+          {
+            "destination": "https://github.com/saxton-network/workflow/releases/download/v0.1.0-alpha.14/workflow-v0.1.0-alpha.14.zip",
+            "mode": null
+          },
+          {
+            "destination": "https://github.com/saxton-network/workflow/releases/download/v0.1.0-alpha.14/workflow-v0.1.0-alpha.14.zip.sha256",
+            "mode": null
+          },
+          {
+            "destination": "https://api.github.com/repos/saxton-network/workflow/git/ref/tags/v0.1.0-alpha.14",
+            "mode": null
+          }
+        ]
+      },
+      "frozenBatchFingerprint": "2da72c54825b9b6668e958ad72d4dc017b87f229be5920233060c204d04365b1",
+      "gitDivergence": {
+        "identical": true,
+        "authoritySha": "02c771a7c7d71e2303c186d0c150e903a524e949",
+        "otherSha": "02c771a7c7d71e2303c186d0c150e903a524e949"
+      },
+      "validation": [
+        {
+          "checkId": "validate-repository",
+          "inputFingerprint": null,
+          "validatorSha256": "45eba69bf41f17ca4d1ea646e4d4bc8e3bcd1cf407a8ae3b698effe1032a2ebe",
+          "exitCode": 0,
+          "verdict": "PASS",
+          "recordedAt": null,
+          "evidencePath": "agent-work/release-alpha14/results/R.md"
+        },
+        {
+          "checkId": "zip-reproducible",
+          "inputFingerprint": "1b87fa4a7034e58efaf0c8479b93bb82d4d3bad2c8fb3b467da4f27627d98355",
+          "validatorSha256": null,
+          "exitCode": 0,
+          "verdict": "PASS",
+          "recordedAt": null,
+          "evidencePath": "agent-work/release-alpha14/results/R.md"
+        },
+        {
+          "checkId": "evidence-access",
+          "inputFingerprint": null,
+          "validatorSha256": null,
+          "exitCode": 0,
+          "verdict": "PASS",
+          "recordedAt": null,
+          "evidencePath": "agent-work/release-alpha14/results/R.md"
+        }
+      ],
+      "evidence": [
+        {
+          "path": "agent-work/release-alpha14/results/R.md",
+          "sha256": "676dbe32a2771d0a5c9f50372fe8db9629b211197fbc687222622366cb8c1f7a"
+        },
+        {
+          "path": "agent-work/release-alpha14/results/R-baseline.json",
+          "sha256": "ca14a88a3b4232c9a6abb120de3f21e008f9ba42d658925027ef58e9bc866400"
+        },
+        {
+          "path": "agent-work/release-alpha14/results/R-rollback-alpha13.md",
+          "sha256": "726e2c9e74afa31b1ee2ce784283887efc5dbecb24126a4c16e1bd05fb50cc5f"
+        },
+        {
+          "path": "agent-work/release-alpha14/results/R-settings.json",
+          "sha256": "61abd035b63518eb1d2fbc0fff10b607f7b7fe9cf869b48da95cc5daf9fe44d3"
+        },
+        {
+          "path": "agent-work/release-alpha14/results/R-dispatch-inputs.json",
+          "sha256": "4c28473f304ccdd3ee2ab63a9abbd8adcc2fd3957bd5e29a2caed41cc5ef90e3"
+        },
+        {
+          "path": "agent-work/release-alpha14/results/R-expected-checksum.txt",
+          "sha256": "54426f84ac978f86c18dafe06fc21346ec4838e75f9742b65b466c2fa5305f99"
+        }
+      ],
+      "helper": {
+        "path": "scripts/agent-task.py",
+        "sha256": "8ec1b22cd97d10e1873ed9dfa83a37fa58f036914452f1af6508564215748f3c"
+      }
     }
   ]
 }
