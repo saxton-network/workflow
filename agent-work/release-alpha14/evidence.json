@@ -40,6 +40,38 @@
         "path": "scripts/agent-task.py",
         "sha256": "8ec1b22cd97d10e1873ed9dfa83a37fa58f036914452f1af6508564215748f3c"
       }
+    },
+    {
+      "taskId": "B",
+      "attempt": 1,
+      "role": "independent_review",
+      "model": null,
+      "branch": "pilot/alpha14-records",
+      "worktree": null,
+      "baseSha": "02c771a7c7d71e2303c186d0c150e903a524e949",
+      "candidateSha": "02c771a7c7d71e2303c186d0c150e903a524e949",
+      "deploymentSourceSha": "02c771a7c7d71e2303c186d0c150e903a524e949",
+      "taskStatus": "passed",
+      "readinessVerdict": null,
+      "startedAt": null,
+      "completedAt": null,
+      "changedPaths": [],
+      "reviewFindingIds": [
+        "L1",
+        "L2"
+      ],
+      "approvalReference": null,
+      "validation": [],
+      "evidence": [
+        {
+          "path": "agent-work/release-alpha14/results/B-1.md",
+          "sha256": "aa5f2a90f21e4dcdfd23864f9af75cbdc825aad0f0619a9bfd1953087180bd38"
+        }
+      ],
+      "helper": {
+        "path": "scripts/agent-task.py",
+        "sha256": "8ec1b22cd97d10e1873ed9dfa83a37fa58f036914452f1af6508564215748f3c"
+      }
     }
   ]
 }
