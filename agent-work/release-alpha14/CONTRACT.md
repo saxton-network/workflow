@@ -18,7 +18,7 @@ Frozen from task R onward. Changing it after R needs fresh readiness and a new o
 
 ## Evidence clients
 
-This is decided before approval (Pilot 7 finding 1). The connection is the session's authenticated GitHub connection. `curl` makes unauthenticated public requests.
+This is decided before approval (Pilot 7 finding 1). The connection is the session's authenticated GitHub connection. `curl` sends its requests through the session's network proxy, which adds the session's GitHub credentials; it is a separate client from the connection (see the plan's 2026-10-14 clarification).
 
 | Check | Item | Primary client | Fallback client |
 | --- | --- | --- | --- |

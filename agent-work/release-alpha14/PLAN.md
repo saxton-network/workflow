@@ -124,7 +124,7 @@ Until then, the only permitted merge is the records PR in the proven-`false` cas
   - the fallback client for every item that has one;
   - the `curl` downloads of alpha.13's ZIP and `.sha256`, with their bytes hashed against the known digests;
   - the release API's per-asset `digest` field for both alpha.13 assets, read through the connection;
-  - `curl`'s remaining unauthenticated API allowance (`X-RateLimit-Remaining`), recorded together with the number of `curl` API requests acceptance will make.
+  - `curl`'s remaining API allowance (`X-RateLimit-Remaining`), recorded together with the number of `curl` API requests acceptance will make.
 
   A read that readiness cannot prove is a stop condition. The job log is read once as a diagnostic, and is not required.
 - **Tools.**
@@ -173,7 +173,7 @@ Until then, the only permitted merge is the records PR in the proven-`false` cas
 
 ### Evidence clients
 
-This is decided before approval (Pilot 7 finding 1). The connection is the session's authenticated GitHub connection. `curl` makes unauthenticated public requests.
+This is decided before approval (Pilot 7 finding 1). The connection is the session's authenticated GitHub connection. `curl` sends its requests through the session's network proxy, which adds the session's GitHub credentials; it is a separate client from the connection (see the plan's 2026-10-14 clarification).
 
 | Check | Item | Primary client | Fallback client |
 | --- | --- | --- | --- |
@@ -376,6 +376,8 @@ Dated entries go here. Two kinds of change are recorded here before the task run
 - a task file that swaps in an equal or stronger proof.
 
 The next independent review checks each entry, and the next owner preview lists it. Anything weaker or wider, or anything that changes the live batch, needs a revised plan and a new approval.
+
+- **2026-10-14, during R, before the contract is hashed (a correction of fact, nothing weakened).** The plan described `curl` as making unauthenticated public requests. Readiness found that the session's network proxy adds the session's GitHub credentials to `curl`'s requests: the rate limit is 15,000 per hour, and an authenticated-only endpoint answers. `curl` is still a separate client from the connection (a different program and request path), so every rule about primary and fallback clients and agreement is unchanged. The contract's wording is corrected to match. The next independent review is the records review; the next owner preview lists this entry.
 
 ## Records
 
