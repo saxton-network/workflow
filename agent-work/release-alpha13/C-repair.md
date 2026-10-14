@@ -9,7 +9,7 @@
 3. If the repair changed `scripts/agent-task.py`, merge `main` into `pilot/alpha13-records` before running the helper again.
 4. `CONTRACT.md` may change only before R; record each change.
 
-For a second round, the coordinator sets B back to `findings` and C back to `pending` in the same records commit.
+For a second round, the coordinator sets B back to `findings` and C back to `pending` in the same records commit. If B is not clean after two repair rounds, stop and report to the owner.
 
 ## Result
 

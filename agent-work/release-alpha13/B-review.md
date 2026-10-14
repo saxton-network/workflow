@@ -16,7 +16,7 @@ This review is on top of the per-PR reviews already done.
 3. **Nothing private in the ZIP** (`git archive` of the candidate): no tokens or keys, no email addresses other than the no-reply trailer, no local machine paths, no session links in shipped files, no private repository names.
 4. **`CONTRACT.md`:** the dispatch rules, acceptance checks, the `liveStateChanged` proof, the rollback matrix, and the retry boundary.
 
-Classify each finding against the threat model, with a severity. Verdict `passed` (no in-scope High or Medium) or `findings`.
+Classify each finding against the threat model, with a severity. If the review is not clean after two repair rounds, the run stops. Verdict `passed` (no in-scope High or Medium) or `findings`.
 
 ## Evidence
 

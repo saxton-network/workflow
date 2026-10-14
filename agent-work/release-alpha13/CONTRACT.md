@@ -6,7 +6,7 @@ Frozen from task R onward. Changing it after R needs fresh readiness and a new o
 
 - **Deployment authority:** `origin` `refs/heads/main`.
 - **The source:** the `main` head that task B passes (task A's candidate, or the repair's new `main` head).
-- **The live batch:** one dispatch of `.github/workflows/release.yml` on `main` with the frozen `results/R-dispatch-inputs.json` (`version: v0.1.0-alpha.13`, `prerelease: true`).
+- **The live batch:** one dispatch of `.github/workflows/release.yml` on `main` with the frozen `agent-work/release-alpha13/results/R-dispatch-inputs.json` (`version: v0.1.0-alpha.13`, `prerelease: true`).
 - **Main freeze:** see `PLAN.md` "Main freeze".
 
 ## Accepted unknowns
