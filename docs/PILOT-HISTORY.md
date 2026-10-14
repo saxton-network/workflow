@@ -198,16 +198,60 @@ The change after that closes Pilot 5's remaining findings:
 
   The helper keeps a task that requires the live task `failed` from being ready while the latest live-attempt record says `liveStateChanged: false`, and its task view says no rollback is needed. A test covers explicit false against true, null, absent and wrong-typed values, and a later attempt.
 
+## Pilot 6: release v0.1.0-alpha.13 with the post-Pilot 5 rules
+
+Goal: publish `v0.1.0-alpha.13`, packaging PRs #15–#21, through the full deployment graph, and use the rules merged after Pilot 5 live for the first time. The full records are in `agent-work/release-alpha13/`.
+
+What happened:
+
+- **Plan.** An independent plan review took three rounds.
+  - Round 1 found three High gaps. A cancel cannot beat a 15-second run's tag step. The rollback matrix had no draft rows. The proof that nothing went live was too thin.
+  - Round 2 found two Medium gaps: no "nothing exists" row, and no end to the main freeze when nothing was published.
+  - Round 3 approved. The owner approved revision 3.
+- **Scaffold.** The scaffold review added eight task-file details (S1–S8), mainly a fuller pre-dispatch recheck.
+- **Review.** The release review (B), on a different model from the builder, passed with four Low findings.
+- **Plan clarification.** One review suggestion made an acceptance check stricter: name both assets, require "not a draft", and check the title. It was recorded as a dated plan clarification before readiness, which is the PR #21 mechanism used live for the first time.
+- **Readiness.** It passed. The ZIP was reproducible, alpha.12's published ZIP was reproduced from its commit, and there were no rulesets.
+- **Approval.** The approval record follows `COORDINATOR.md` "Approval records": the question as asked, the owner's answer, the approved actions with input hashes, the conditions, and what it does not cover.
+- **Live run.** The pre-dispatch recheck was read clean, then one dispatch was made on its own. Run 38508243210 took 16 seconds.
+- **Acceptance PASS.** The downloaded ZIP and `.sha256` equal the frozen bytes. The unpacked ZIP equals `git archive` of the source. The tag is lightweight at the source. Every other tag and release is unchanged.
+- **Helper labels.** The helper showed every label the plan expected: `GATED`, `PREVIEW`, `READY`, then `DONE` with K `READY`.
+
+Findings, recorded for a later batch:
+
+1. **README.** It says the live gate has three helper states; there are four (`DONE`). *Suggested action:* add `DONE`.
+2. **`docs/RELEASING.md`.** Its "fails after creating the tag" paragraph does not mention that a draft release may exist. *Suggested action:* say to check the authenticated release list for a draft.
+3. **Helper gating.** The helper's live gate reads evidence only. A manifest `status.J = "failed"` with no failed live record still shows J `READY` or `PREVIEW`. It needs a coordinator to skip a required step, and no wrong source or approval is accepted. *Suggested action:* return `GATED` when the live task's manifest status is `failed`, with a test.
+4. **`RESULT-TEMPLATE.md`.** Its live-attempt paragraph does not mention `liveStateChanged` or approval records. *Suggested action:* point to the spec and coordinator sections.
+5. **Plan review.** The first plan revision relied on cancelling a run that would already have published. *Suggested action:* `docs/RELEASING.md` could state the run's timing and that a cancel will not beat the tag step.
+6. **Release metadata.** The release's API `created_at` is the source commit's time, not the run's; `published_at` is the run's. Evidence should use `published_at`.
+
+Rules exercised live for the first time, without trouble:
+
+- approval records;
+- a dated plan clarification;
+- the full pre-dispatch recheck, read before a separate dispatch;
+- the reviewer's observed model recorded every round;
+- the ref-move rules for the records landing.
+
+Not exercised, because the run succeeded:
+
+- the repair-round reset;
+- the recheck-failure and dispatch-error paths;
+- `liveStateChanged`;
+- the rollback matrix.
+
 ## Current maturity
 
-The repository-only path has passed a controlled pilot. The deployment path has run four live workflows:
+The repository-only path has passed a controlled pilot. The deployment path has run five live workflows:
 
 - Pilot 3: the success path, a GitHub prerelease;
 - Pilot 4: a rollback drill, with an owner-performed release and tag deletion;
-- Pilot 5: two in a first adopter project, the GitHub Pages success path and a Pages rollback drill (a coordinator redeploy of the previous commit).
+- Pilot 5: two in a first adopter project, the GitHub Pages success path and a Pages rollback drill (a coordinator redeploy of the previous commit);
+- Pilot 6: the success path again, `v0.1.0-alpha.13`, with the post-Pilot 5 rules.
 
 Pilot 5 is the first adoption by a newcomer in another repository. It exercised the fixes for Pilot 4's findings: J stayed `GATED` after the failed attempt, and records landed after a verified rollback. The tag-only and draft rollback rows, run cancellation, frozen-batch invalidation and a refused retry have still not been exercised live; for the retry boundary, only the helper's `GATED` label was observed.
 
-The framework should still be treated as experimental: four live workflows are not broad coverage, and Pilot 5's adoption findings show that the docs assume knowledge a newcomer does not have.
+The framework should still be treated as experimental: five live workflows are not broad coverage, and Pilot 5's adoption findings show that the docs assume knowledge a newcomer does not have.
 
 The important pattern is deliberate: a pilot finding stops advancement, becomes a narrow validator/test repair, receives independent review, and only then is the same scenario retried.
