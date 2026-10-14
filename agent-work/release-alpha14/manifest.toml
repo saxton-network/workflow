@@ -20,9 +20,9 @@ A = "complete"
 B = "passed"
 C = "conditional"
 R = "complete"
-J = "in_progress"
+J = "complete"
 V = "blocked"
-K = "blocked"
+K = "pending"
 
 [tasks.A]
 kind = "implementation"
