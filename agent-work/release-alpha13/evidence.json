@@ -1,5 +1,45 @@
 {
   "workflowVersion": 3,
   "workflowId": "release-alpha13",
-  "records": []
+  "records": [
+    {
+      "taskId": "A",
+      "attempt": 1,
+      "role": "implementation",
+      "model": null,
+      "branch": "pilot/alpha13-records",
+      "worktree": null,
+      "baseSha": "84d826a40b8f8567439ab15eb270a1a752f92a82",
+      "candidateSha": "84d826a40b8f8567439ab15eb270a1a752f92a82",
+      "deploymentSourceSha": null,
+      "taskStatus": "complete",
+      "readinessVerdict": null,
+      "startedAt": null,
+      "completedAt": null,
+      "changedPaths": [],
+      "reviewFindingIds": [],
+      "approvalReference": null,
+      "validation": [
+        {
+          "checkId": "validate-ci",
+          "inputFingerprint": null,
+          "validatorSha256": null,
+          "exitCode": null,
+          "verdict": "PASS",
+          "recordedAt": null,
+          "evidencePath": "agent-work/release-alpha13/results/A.md"
+        }
+      ],
+      "evidence": [
+        {
+          "path": "agent-work/release-alpha13/results/A.md",
+          "sha256": "da684dacecf7ce5b8365f4b3d2afcd2cd121fb5bbd963d21abb7b701a365d55b"
+        }
+      ],
+      "helper": {
+        "path": "scripts/agent-task.py",
+        "sha256": "67fa523bd62cf21ad53d969460074982baff1f5b5e1312a086b953e0138f4434"
+      }
+    }
+  ]
 }

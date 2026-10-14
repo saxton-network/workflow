@@ -11,4 +11,4 @@ The reviewer was the plan reviewer: a separate, read-only agent whose observed m
   - S6: R names the tools, what `R-rollback-alpha12.md` holds, and that validators are hashed at the source.
   - S7: check-ins are scheduled in J at the failure; V switches them off.
   - S8: CONTRACT.md uses the full path to the dispatch inputs.
-- **Applied in the next commit.** The reviewer re-reads the changed lines before task A's record is committed.
+- **Fixes applied in `2b013bb`.** The reviewer re-read the changed lines: approve, S1–S8 resolved, nothing weakened or widened, helper labels as expected.
