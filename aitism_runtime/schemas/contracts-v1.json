@@ -7,7 +7,7 @@
       "properties": {
         "id": {
           "type": "string",
-          "pattern": "[A-Za-z][A-Za-z0-9_-]{0,63}"
+          "pattern": "^(?:[A-Za-z][A-Za-z0-9_-]{0,63})(?![\\s\\S])"
         },
         "kind": {
           "type": "string",
@@ -21,7 +21,7 @@
           "type": "array",
           "items": {
             "type": "string",
-            "pattern": "[A-Za-z][A-Za-z0-9_-]{0,63}"
+            "pattern": "^(?:[A-Za-z][A-Za-z0-9_-]{0,63})(?![\\s\\S])"
           },
           "minItems": 0,
           "uniqueItems": true
@@ -30,7 +30,7 @@
           "anyOf": [
             {
               "type": "string",
-              "pattern": "[A-Za-z][A-Za-z0-9_-]{0,63}"
+              "pattern": "^(?:[A-Za-z][A-Za-z0-9_-]{0,63})(?![\\s\\S])"
             },
             {
               "type": "null"
@@ -39,11 +39,11 @@
         },
         "branch": {
           "type": "string",
-          "pattern": "sim/[A-Za-z][A-Za-z0-9_-]{0,63}/[A-Za-z][A-Za-z0-9_-]{0,63}"
+          "pattern": "^(?:sim/[A-Za-z][A-Za-z0-9_-]{0,63}/[A-Za-z][A-Za-z0-9_-]{0,63})(?![\\s\\S])"
         },
         "worktree": {
           "type": "string",
-          "pattern": "sim/[A-Za-z][A-Za-z0-9_-]{0,63}/[A-Za-z][A-Za-z0-9_-]{0,63}"
+          "pattern": "^(?:sim/[A-Za-z][A-Za-z0-9_-]{0,63}/[A-Za-z][A-Za-z0-9_-]{0,63})(?![\\s\\S])"
         }
       },
       "required": [
@@ -64,7 +64,7 @@
         },
         "workflow_id": {
           "type": "string",
-          "pattern": "[A-Za-z][A-Za-z0-9_-]{0,63}"
+          "pattern": "^(?:[A-Za-z][A-Za-z0-9_-]{0,63})(?![\\s\\S])"
         },
         "objective": {
           "type": "string",
@@ -75,14 +75,14 @@
         },
         "source_sha": {
           "type": "string",
-          "pattern": "[0-9a-f]{40}|[0-9a-f]{64}"
+          "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})(?![\\s\\S])"
         },
         "source_branch": {
           "const": "experimental/features"
         },
         "terminal_task": {
           "type": "string",
-          "pattern": "[A-Za-z][A-Za-z0-9_-]{0,63}"
+          "pattern": "^(?:[A-Za-z][A-Za-z0-9_-]{0,63})(?![\\s\\S])"
         },
         "requirements": {
           "type": "array",
@@ -264,11 +264,11 @@
         },
         "workflow_id": {
           "type": "string",
-          "pattern": "[A-Za-z][A-Za-z0-9_-]{0,63}"
+          "pattern": "^(?:[A-Za-z][A-Za-z0-9_-]{0,63})(?![\\s\\S])"
         },
         "task_id": {
           "type": "string",
-          "pattern": "[A-Za-z][A-Za-z0-9_-]{0,63}"
+          "pattern": "^(?:[A-Za-z][A-Za-z0-9_-]{0,63})(?![\\s\\S])"
         },
         "attempt": {
           "type": "integer",
@@ -276,21 +276,21 @@
         },
         "lease": {
           "type": "string",
-          "pattern": "[0-9a-f]{64}"
+          "pattern": "^(?:[0-9a-f]{64})(?![\\s\\S])"
         },
         "plan_hash": {
           "type": "string",
-          "pattern": "[0-9a-f]{64}"
+          "pattern": "^(?:[0-9a-f]{64})(?![\\s\\S])"
         },
         "source_sha": {
           "type": "string",
-          "pattern": "[0-9a-f]{40}|[0-9a-f]{64}"
+          "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})(?![\\s\\S])"
         },
         "subject_hash": {
           "anyOf": [
             {
               "type": "string",
-              "pattern": "[0-9a-f]{64}"
+              "pattern": "^(?:[0-9a-f]{64})(?![\\s\\S])"
             },
             {
               "type": "null"
@@ -337,11 +337,11 @@
         },
         "workflow_id": {
           "type": "string",
-          "pattern": "[A-Za-z][A-Za-z0-9_-]{0,63}"
+          "pattern": "^(?:[A-Za-z][A-Za-z0-9_-]{0,63})(?![\\s\\S])"
         },
         "task_id": {
           "type": "string",
-          "pattern": "[A-Za-z][A-Za-z0-9_-]{0,63}"
+          "pattern": "^(?:[A-Za-z][A-Za-z0-9_-]{0,63})(?![\\s\\S])"
         },
         "attempt": {
           "type": "integer",
@@ -349,21 +349,21 @@
         },
         "lease": {
           "type": "string",
-          "pattern": "[0-9a-f]{64}"
+          "pattern": "^(?:[0-9a-f]{64})(?![\\s\\S])"
         },
         "plan_hash": {
           "type": "string",
-          "pattern": "[0-9a-f]{64}"
+          "pattern": "^(?:[0-9a-f]{64})(?![\\s\\S])"
         },
         "source_sha": {
           "type": "string",
-          "pattern": "[0-9a-f]{40}|[0-9a-f]{64}"
+          "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})(?![\\s\\S])"
         },
         "subject_hash": {
           "anyOf": [
             {
               "type": "string",
-              "pattern": "[0-9a-f]{64}"
+              "pattern": "^(?:[0-9a-f]{64})(?![\\s\\S])"
             },
             {
               "type": "null"
@@ -391,7 +391,7 @@
         },
         "artifact_hash": {
           "type": "string",
-          "pattern": "[0-9a-f]{64}"
+          "pattern": "^(?:[0-9a-f]{64})(?![\\s\\S])"
         },
         "usage": {
           "$ref": "#/$defs/usage"
@@ -420,7 +420,7 @@
       "properties": {
         "token": {
           "type": "string",
-          "pattern": "[0-9a-f]{64}"
+          "pattern": "^(?:[0-9a-f]{64})(?![\\s\\S])"
         },
         "expires_at": {
           "type": "integer",
@@ -443,7 +443,7 @@
       "properties": {
         "task": {
           "type": "string",
-          "pattern": "[A-Za-z][A-Za-z0-9_-]{0,63}"
+          "pattern": "^(?:[A-Za-z][A-Za-z0-9_-]{0,63})(?![\\s\\S])"
         },
         "attempt": {
           "type": "integer",
@@ -451,14 +451,14 @@
         },
         "lease": {
           "type": "string",
-          "pattern": "[0-9a-f]{64}"
+          "pattern": "^(?:[0-9a-f]{64})(?![\\s\\S])"
         },
         "data": {
           "type": "object"
         },
         "sha256": {
           "type": "string",
-          "pattern": "[0-9a-f]{64}"
+          "pattern": "^(?:[0-9a-f]{64})(?![\\s\\S])"
         }
       },
       "required": [
@@ -479,7 +479,7 @@
         },
         "lease": {
           "type": "string",
-          "pattern": "[0-9a-f]{64}"
+          "pattern": "^(?:[0-9a-f]{64})(?![\\s\\S])"
         },
         "started_at": {
           "type": "integer",
@@ -557,7 +557,7 @@
           "anyOf": [
             {
               "type": "string",
-              "pattern": "[A-Za-z][A-Za-z0-9_-]{0,63}"
+              "pattern": "^(?:[A-Za-z][A-Za-z0-9_-]{0,63})(?![\\s\\S])"
             },
             {
               "type": "null"
@@ -633,7 +633,7 @@
           "anyOf": [
             {
               "type": "string",
-              "pattern": "[A-Za-z][A-Za-z0-9_-]{0,63}"
+              "pattern": "^(?:[A-Za-z][A-Za-z0-9_-]{0,63})(?![\\s\\S])"
             },
             {
               "type": "null"
@@ -663,7 +663,7 @@
           "anyOf": [
             {
               "type": "string",
-              "pattern": "[A-Za-z][A-Za-z0-9_-]{0,63}"
+              "pattern": "^(?:[A-Za-z][A-Za-z0-9_-]{0,63})(?![\\s\\S])"
             },
             {
               "type": "null"
@@ -703,7 +703,7 @@
         },
         "plan_hash": {
           "type": "string",
-          "pattern": "[0-9a-f]{64}"
+          "pattern": "^(?:[0-9a-f]{64})(?![\\s\\S])"
         },
         "reference": {
           "type": "string",
@@ -737,7 +737,7 @@
         },
         "plan_hash": {
           "type": "string",
-          "pattern": "[0-9a-f]{64}"
+          "pattern": "^(?:[0-9a-f]{64})(?![\\s\\S])"
         },
         "status": {
           "type": "string",
@@ -801,7 +801,7 @@
         },
         "workflow_id": {
           "type": "string",
-          "pattern": "[A-Za-z][A-Za-z0-9_-]{0,63}"
+          "pattern": "^(?:[A-Za-z][A-Za-z0-9_-]{0,63})(?![\\s\\S])"
         },
         "sequence": {
           "type": "integer",
@@ -832,7 +832,7 @@
         },
         "previous_hash": {
           "type": "string",
-          "pattern": "[0-9a-f]{64}"
+          "pattern": "^(?:[0-9a-f]{64})(?![\\s\\S])"
         },
         "state": {
           "$ref": "#/$defs/state"

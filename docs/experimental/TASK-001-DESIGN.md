@@ -73,9 +73,15 @@ Reviews cover exact build-result hashes and source; reviewers must be different
 actors from every builder they review. Completion requires validation of all
 successful results and all mandatory reviews, not just a provider status string.
 
+An enrolled actor's durable identity is the composite `(workflow_id, agent_id)`.
+The same agent label in different workflows denotes separate actors, with
+separate roles, assignments, and lifecycle state. Actor claim exclusion is
+workflow-local: an enrolled actor must be idle before its assigned task is claimed.
+
 Each claim reserves both an isolated simulation branch label and worktree label
-across all workflows in one store. These are resources in a mock workspace;
-the runtime creates no Git worktrees and edits no source files. Multiple store
+across all workflows in one store, regardless of actor identity. These are
+resources in a mock workspace; the runtime creates no Git worktrees and edits no
+source files. Multiple store
 files must not manage the same real resources. Actual filesystem isolation and
 worktree provisioning are prerequisites for future execution, not claims here.
 
@@ -92,9 +98,11 @@ Hash chains detect accidental damage; they do not resist a malicious database ow
 Claims commit before provider calls. Calls run outside the database transaction.
 Results carry a lease fencing token, attempt identity, plan hash, source SHA,
 provider/model, artifact checksum, review subject, and usage. Acceptance rechecks
-the live lease and Git identity. Concurrent claimants cannot acquire the same
-actor/resource. A duplicate completion with the same result is a no-op; conflicting
-or old completions are rejected. Lost responses leave running leases; expired
+the live lease and Git identity. Concurrent claims cannot acquire the same actor
+within a workflow or the same branch/worktree label anywhere in the store. Separate
+actors with the same label in different workflows may hold leases concurrently
+when their resource labels differ. A duplicate completion with the same result is
+a no-op; conflicting or old completions are rejected. Lost responses leave running leases; expired
 leases become inspectable failed attempts through explicit recovery. Recovery
 does not dispatch. Explicit retry allocates a new attempt and fencing token.
 Only the deterministic mock can be dispatched in Task 001, so retries cannot
@@ -131,6 +139,9 @@ preserved failures, and absence of dispatch. An error message alone is insuffici
 ## Migration and roadmap
 
 Runtime schema version 1 is separate from Workflow manifest versions 2 and 3.
+Published JSON Schema patterns require whole-string matches, just as the runtime
+validator does. `^` anchors the start; `(?![\s\S])` requires the strict end,
+including rejection of trailing newlines, using ECMAScript-compatible syntax.
 There is no automatic importer, export of trusted v3 evidence, migration of pilot
 files, or deployer. Never use simulation results as repository validation evidence.
 Do not copy the runtime as part of the existing adoption file list. SQLite format

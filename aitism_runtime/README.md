@@ -37,6 +37,13 @@ sessions**. Human approves/enrolls; coordinator advances/recovers; assigned agen
 heartbeat/checkpoint. No actor can delegate or change its role. A reference is
 the operator's account of approval, not cryptographic evidence of a human action.
 
+An enrolled actor's durable identity is `(workflow_id, agent_id)`. Reusing an
+agent label in another workflow creates a separate actor with its own role,
+assignment, and state. Actor claim exclusion is workflow-local; actors with the
+same label in different approved workflows can hold leases concurrently when
+their resources differ. Branch and worktree label reservations apply across all
+workflows in the same store.
+
 ~~~bash
 python3 -B -m aitism_runtime propose example --objective "Mock a feature" > /tmp/proposal.json
 python3 -B -m aitism_runtime --store /tmp/example.sqlite create /tmp/proposal.json --actor human
@@ -101,7 +108,9 @@ design requirements for later tasks.
 Machine-readable schemas live in `schemas/`; named schemas reference
 `contracts-v1.json`. The runtime validates their used subset plus semantic graph,
 ownership, approval, evidence, and checkpoint rules. Unknown fields/versions and
-duplicate JSON keys are rejected. `schema_version=1` and SQLite `user_version=1`
+duplicate JSON keys are rejected. Published patterns match whole strings, with
+ECMAScript-compatible strict-end assertions that reject trailing newlines.
+`schema_version=1` and SQLite `user_version=1`
 are explicit contracts. Existing v2/v3 manifests and historical evidence remain
 byte-compatible and are not imported or rewritten.
 

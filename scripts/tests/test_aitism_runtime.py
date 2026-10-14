@@ -6,6 +6,7 @@ from copy import deepcopy
 import io
 import json
 from pathlib import Path
+import re
 import sqlite3
 import subprocess
 import sys
@@ -16,7 +17,7 @@ from unittest.mock import patch
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 from aitism_runtime.cli import main
-from aitism_runtime.contracts import Rejected, canonical, decode, digest, validate_plan
+from aitism_runtime.contracts import Rejected, _validate, canonical, decode, digest, validate_plan
 from aitism_runtime.git_state import GitObserver
 from aitism_runtime.planner import propose
 from aitism_runtime.providers import MockProvider, ProviderBus
@@ -274,6 +275,27 @@ class RuntimeTests(unittest.TestCase):
         self.rejected_without_write(lambda:self.runtime.claim('other','build',actor='coordinator'),wid='other')
         self.assertEqual(self.store.read('other')['tasks']['build']['attempt'],0)
 
+    def test_same_actor_label_in_different_workflows_can_claim_concurrently(self):
+        self.ready()
+        other = propose('other', self.git.sha, 'other')
+        self.ready(other)
+        for field in ('branch', 'worktree'):
+            self.assertNotEqual(self.plan['tasks'][0][field], other['tasks'][0][field])
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            requests = list(pool.map(
+                lambda wid: self.runtime.claim(wid, 'build', actor='coordinator'),
+                ('test', 'other')))
+        self.assertNotEqual(requests[0]['lease'], requests[1]['lease'])
+        for wid, request in zip(('test', 'other'), requests):
+            state = self.store.read(wid)
+            self.assertEqual(request['workflow_id'], wid)
+            self.assertEqual(state['approval']['plan_hash'], state['plan_hash'])
+            self.assertEqual(state['agents']['builder']['state'], 'running')
+            self.assertEqual(state['tasks']['build']['agent'], 'builder')
+            self.assertEqual(state['tasks']['build']['status'], 'running')
+            self.assertEqual(state['tasks']['build']['lease']['token'], request['lease'])
+            self.assertEqual(len(self.store.events(wid)), 6)
+
     def test_concurrent_process_claim_only_one_dispatch_lease(self):
         self.ready()
         script = '''from pathlib import Path
@@ -384,6 +406,57 @@ os._exit(23)
             code=main(['--store',str(self.path),'create',str(plan_path),'--actor','human'])
         self.assertEqual(code,2)
         self.assertEqual(json.loads(stderr.getvalue())['verdict'],'BLOCKED')
+
+
+class ContractPatternTests(unittest.TestCase):
+    def test_published_patterns_match_runtime_whole_string_validation(self):
+        schema = json.loads((ROOT / 'aitism_runtime/schemas/contracts-v1.json').read_text())
+
+        def patterns(spec, path=(), field=None):
+            if isinstance(spec, dict):
+                if 'pattern' in spec:
+                    yield path, field, spec
+                for key, child in spec.items():
+                    if key == 'properties':
+                        for name, prop in child.items():
+                            yield from patterns(prop, path + (key, name), name)
+                    else:
+                        yield from patterns(child, path + (key,), field)
+            elif isinstance(spec, list):
+                for index, child in enumerate(spec):
+                    yield from patterns(child, path + (str(index),), field)
+
+        declarations = list(patterns(schema))
+        self.assertTrue(declarations)
+        for path, field, spec in declarations:
+            if field in {'branch', 'worktree'}:
+                valid = ['sim/Workflow_1/Task-1', 'sim/' + 'A'*64 + '/' + 'B'*64]
+                invalid = ['sim/' + 'A'*65 + '/Task', 'sim/Workflow/' + 'B'*65]
+            elif field == 'source_sha':
+                valid = ['a'*40, 'b'*64]
+                invalid = ['a'*size for size in (39, 41, 63, 65, 80)]
+            elif field in {'lease', 'token', 'plan_hash', 'subject_hash', 'artifact_hash',
+                           'sha256', 'previous_hash'}:
+                valid = ['a'*64]
+                invalid = ['a'*63, 'a'*65, 'A'*64]
+            else:
+                valid = ['A', 'Agent_1-', 'A'*64]
+                invalid = ['A'*65, '1Agent']
+            invalid += ['']
+            for value in valid:
+                invalid += ['?' + value, value + '?', '\n' + value, value + '\n',
+                            value + '\r\n', value + '\u2028', value[:1] + '\n' + value[1:]]
+            for value, expected in [(value, True) for value in valid] + [(value, False) for value in invalid]:
+                with self.subTest(path='/'.join(path), value=value):
+                    # JSON Schema pattern searches for a substring; the runtime uses fullmatch.
+                    published_accepts = re.search(spec['pattern'], value) is not None
+                    try:
+                        _validate(value, spec, schema, '/'.join(path))
+                        runtime_accepts = True
+                    except Rejected:
+                        runtime_accepts = False
+                    self.assertEqual(runtime_accepts, expected)
+                    self.assertEqual(published_accepts, runtime_accepts)
 
 
 class GitObservationTests(unittest.TestCase):
