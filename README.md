@@ -10,7 +10,7 @@ Workflow turns an approved implementation plan into a durable task graph stored 
 
 The included scripts/agent-task.py helper is intentionally **read-only**. It validates manifests and reports task/gate readiness. It does not compile plans, mutate Git, deploy software, or grant human approval.
 
-scripts/publication-scan.py is also read-only. Before anything is pushed to a public remote, it checks every new commit, not only the final files, for email addresses, credentials, home-directory paths and a private list of words (`agent-work/COORDINATOR.md` "Publication scan").
+scripts/publication-scan.py is also read-only. Before anything is pushed to a public remote, it checks every new commit, not only the final files, for email addresses, credentials, home-directory paths and a private list of words, in the lines and file paths each commit adds, its message and its identity (`agent-work/COORDINATOR.md` "Publication scan").
 
 ## Core invariants
 
