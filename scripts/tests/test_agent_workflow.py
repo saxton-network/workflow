@@ -1605,7 +1605,7 @@ class OutputAndAdoptionTests(unittest.TestCase):
             gate = self._adopter_repo(root)
             result = self._run_gate(gate)
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertIn("PASS: 8 vendored file hashes match ADOPTION.md", result.stdout)
+            self.assertIn("PASS: 9 vendored file hashes match ADOPTION.md", result.stdout)
             self.assertIn("PASS: repository validation", result.stdout)
             # A compiled workflow is run through the helper.
             workflow = root / "agent-work" / "example-nondeployment"

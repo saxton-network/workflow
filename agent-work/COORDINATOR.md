@@ -74,6 +74,21 @@ A push, merge or deploy dispatch runs only after every gate for it has passed, a
 - Under `pipefail`, do not end a pipeline with `grep -q`. It exits at the first match, the writer gets SIGPIPE, and the pipeline reports failure (exit 141) even when the match was found. Capture the output to a file first, or count with `grep -c`, which reads all of its input, for example `[ "$(git rev-list --first-parent origin/main | grep -cx "$SHA")" = 1 ]`. `grep -m 1` stops at the first match too, so it has the same problem.
 - Prove ancestry in a clone with full history: `git rev-parse --is-shallow-repository` must print `false`. A shallow clone cannot see the history a first-parent or ancestry proof needs.
 
+## Publication scan
+
+Pushing a branch to a public remote publishes every commit on it, and a `--no-ff` merge keeps them all in history: a slip that a later commit fixed is still public. Before each push to a remote that others can read, including a pull request branch, scan every commit that the remote's authority ref does not already contain:
+
+~~~bash
+python3 scripts/publication-scan.py origin/main HEAD --terms <file outside the repository> --allow-email <mandated identity address> --text <draft PR title and body>
+~~~
+
+- **Terms.** One word or name per line: the GitHub login of every account the session acts as, private repository names, and people's names. The coordinator keeps the file outside the repository and never commits it. Words match whole and ignoring case.
+- **Built-in checks.** Email addresses other than allowed ones and reserved example domains, common credential shapes, and home-directory paths, in the lines each commit adds, its message, and its author and committer.
+- **Result.** Exit 0 is a pass, 1 lists findings, 2 is an error. The default output names the commit, file and line but no matched text, so it may go into a result file; `--show` prints the lines for fixing and is not recorded. A binary file is listed for a check by hand.
+- **On a finding.** Fix the commit before it is pushed: amend or rewrite the unpushed commits on your own branch. If it was already pushed, do not merge that branch with `--no-ff`; land one new commit of the final tree under the mandated identity, and tell the owner the branch still holds the earlier commit.
+
+The scan finds honest slips; it is not a complete secret scanner and does not replace reading the records. It reads history, so run it in a clone with full history (it refuses a shallow one).
+
 ## Advancement loop
 
 Repeat until terminal completion or a stop condition:
