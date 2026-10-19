@@ -14,6 +14,7 @@ Copy them byte for byte from one Workflow commit, and do not edit them. Local ru
 | `agent-work/EVIDENCE-MANIFEST.md` | The `evidence.json` format. |
 | `agent-work/RESULT-TEMPLATE.md` | The task result format. |
 | `scripts/agent-task.py` | The read-only helper. It needs Python 3.11 or newer (`tomllib`). |
+| `scripts/publication-scan.py` | The publication scan `COORDINATOR.md` requires before a push. |
 | `docs/THREAT-MODEL.md` | Classifies helper and gate findings; see section 4. |
 | `docs/agent-worktrees.md` | Cited by `COORDINATOR.md`. |
 
@@ -53,6 +54,8 @@ Add your repository's rules, for example a content rule for a public site. If a 
 
 - **Write the answer next to the rule, in `AGENTS.md`.** An owner decision that interprets a rule belongs beside that rule. Pilot 5 recorded its answer only in the adoption log; in Pilot 7 a reviewer read the rule as written, reported the trailers as a violation, and the repair worked against the owner's decision. If decisions also live in `ADOPTION.md`, list them in every review briefing.
 - **Say which commit identity to use, without naming anyone.** For example: "the configured no-reply identity, never a personal one". "Whatever identity is configured" depends on the machine: in Pilot 7 a coordinator handover changed the author identity on a public repository. Whoever takes over checks `git config user.name` and `user.email` against the rule before the first commit.
+- **Say how pull requests are merged.** GitHub's merge button and merge API author the merge commit as the account that clicks or calls it, with that account's name and email, whatever identity the branch used (Pilot 8). If personal identities must stay out of history, say that agents merge locally under the mandated identity and push the result, for example: "agents make merges into `main` locally under that identity and push them; agents do not use GitHub's merge button or merge API".
+- **Back a content rule with the publication scan.** Name in `AGENTS.md` the identity addresses the rule allows, so the coordinator can pass them to `scripts/publication-scan.py` as `--allow-email`. Keep the scan's word list outside the repository: it holds the very names the rule forbids. Put in it the GitHub login of every account the agents act as (it appears in API responses and is easy to copy into a record), private repository names, and the names of people. In Pilot 9 a record named the owner's login and a later commit removed it, but the `--no-ff` merge published both commits.
 
 Changing repository or hosting settings (turning on GitHub Pages, branch protection, secrets) is a live change. It needs its own bounded preview and explicit approval.
 
@@ -87,6 +90,7 @@ VENDORED = [
     "agent-work/EVIDENCE-MANIFEST.md",
     "agent-work/RESULT-TEMPLATE.md",
     "scripts/agent-task.py",
+    "scripts/publication-scan.py",
     "docs/THREAT-MODEL.md",
     "docs/agent-worktrees.md",
 ]
@@ -155,5 +159,5 @@ Workflow's examples are written around releases and hosts. For a site published 
 - **Runtime acceptance.**
   - Fetch the live bytes with a cache-busting query (`curl -sS --compressed '<url>/?cb=<nonce>'`) and compare SHA-256. Retry for a bounded window to cover CDN propagation.
   - Never use a tool that returns converted text instead of bytes.
-- **Evidence of what is live.** Have the deploy job log the checked-out commit and the file hash. At readiness, prove that the coordinator can read a recent deploy job's log with the client it will use at acceptance, and say in the contract whether a second read-only client may be used within the acceptance window (decided before approval, not after a failure). In Pilot 7 one client got `Forbidden` on the log and another could read it; acceptance failed and a correct deploy was rolled back. Reading the same evidence again is not a retry of the live batch, but evidence read after a failed check never turns the failed attempt into a pass. Host deployment labels may name the triggering ref's tip rather than the deployed input. On GitHub Pages, `pages_build_version` is `main`'s tip on a dispatch, so it is not evidence of the live commit.
+- **Evidence of what is live.** Have the deploy job log the checked-out commit and the file hash. At readiness, prove that the coordinator can read a recent deploy job's log with the client it will use at acceptance, and say in the contract whether a second read-only client may be used within the acceptance window (decided before approval, not after a failure). In Pilot 7 one client got `Forbidden` on the log and another could read it; acceptance failed and a correct deploy was rolled back. Prove each fallback against the exact repository it will read: in Pilot 9 the session's proxy limited `curl` to the session's repositories, so one check had no fallback. Reading the same evidence again is not a retry of the live batch, but evidence read after a failed check never turns the failed attempt into a pass. Host deployment labels may name the triggering ref's tip rather than the deployed input. On GitHub Pages, `pages_build_version` is `main`'s tip on a dispatch, so it is not evidence of the live commit.
 - **Turning on the host feature** is a settings change with its own preview and approval (section 3).

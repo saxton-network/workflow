@@ -344,6 +344,16 @@ Not exercised, because the run succeeded:
 - the repair round;
 - the recheck-failure and dispatch-error paths.
 
+Follow-up, in the change after Pilot 9 (PR #28):
+
+- **Pilot 9 findings 1–3.**
+  - `scripts/publication-scan.py` checks every commit about to be pushed, not only the final files, for a private word list kept outside the repository, email addresses, credential shapes and home-directory paths, with tests. `COORDINATOR.md` "Publication scan" requires it before each push to a public remote, and says what to do when a pushed commit fails.
+  - `docs/ADOPTING.md` says to put the login of every account the agents act as in the word list, and to prove each evidence fallback against the exact repository it will read.
+- **Pilot 8 findings 1, 3 and 4.**
+  - The scaffold review checks every version, SHA, hash, count and pull request number against the plan and the live repositories.
+  - `docs/ADOPTING.md` says GitHub's merge button and API author the merge as the clicking account, and how to write a local-merge rule.
+  - The threat model's cross-reference points to "One accepted format".
+
 ## Current maturity
 
 The repository-only path has passed a controlled pilot. The deployment path has run eight live workflows:

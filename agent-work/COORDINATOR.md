@@ -74,6 +74,28 @@ A push, merge or deploy dispatch runs only after every gate for it has passed, a
 - Under `pipefail`, do not end a pipeline with `grep -q`. It exits at the first match, the writer gets SIGPIPE, and the pipeline reports failure (exit 141) even when the match was found. Capture the output to a file first, or count with `grep -c`, which reads all of its input, for example `[ "$(git rev-list --first-parent origin/main | grep -cx "$SHA")" = 1 ]`. `grep -m 1` stops at the first match too, so it has the same problem.
 - Prove ancestry in a clone with full history: `git rev-parse --is-shallow-repository` must print `false`. A shallow clone cannot see the history a first-parent or ancestry proof needs.
 
+## Publication scan
+
+Pushing a branch to a public remote publishes every commit on it, and a `--no-ff` merge keeps them all in history: a slip that a later commit fixed is still public. Before each push to a remote that others can read, including a pull request branch, fetch so that `origin/main` is current, then scan every commit it does not already contain. Gate the push on the scan as in "Commands that move refs". The scan needs Git 2.24 or later.
+
+~~~bash
+if ! git fetch origin; then exit 1; fi
+if ! python3 scripts/publication-scan.py origin/main HEAD --terms <file outside the repository> \
+    --allow-email <mandated identity address> --text <draft PR title and body>; then exit 1; fi
+# the push follows here
+~~~
+
+- **Terms.** One word or name per line: the GitHub login of every account the session acts as, private repository names, and people's names. The coordinator keeps the file outside the repository and never commits it. Words match whole and ignoring case, also when written with ordinary copy-paste characters (non-breaking spaces and hyphens, soft hyphens, zero-width characters, smart quotes, repeated spaces), and a term of several words also matches when it wraps onto the next line. A file with no terms is an error; `--no-terms` scans without a list.
+- **Built-in checks.** Email addresses other than allowed ones (`--allow-email` may be repeated) and reserved example domains, common credential shapes, and home-directory paths.
+- **What is scanned.** In each commit: the lines it adds (in a merge, only lines that match no parent), the paths it adds or changes, its message, and its author and committer. Branch and tag names are not scanned, so choose them by the same rules.
+- **Result.** Exit 0 is a pass, 1 lists findings, 2 is an error, including a range with no commits. The default output names the commit, file and line but no matched text, and writes `<path withheld>` for a path that itself fails a check, so it may go into a result file; `--show` prints the lines for fixing and is not recorded. A binary file is listed and fails the scan; after checking it by hand, rerun with `--allow-binary`.
+- **On a finding.** First find out whether the commit is already on the remote: `git branch -r --contains <sha>`.
+  - Not pushed: rewrite only your own unpushed commits, after keeping a local backup ref (`git branch backup/<topic> HEAD`). Never force-push.
+  - Already pushed: never force-push to hide it. Do not merge that branch with `--no-ff`; land one new commit of the final tree under the mandated identity, and tell the owner that the branch, and the pull request's refs, still hold the earlier commit.
+  - A credential that reached a remote counts as published: revoke or rotate it, whatever happens to the history.
+
+The scan finds honest slips; it is not a complete secret scanner and does not replace reading the records. It reads history, so run it in a clone with full history (it refuses a shallow one).
+
 ## Advancement loop
 
 Repeat until terminal completion or a stop condition:
