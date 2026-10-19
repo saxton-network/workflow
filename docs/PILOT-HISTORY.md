@@ -316,19 +316,48 @@ Not exercised, because the run succeeded:
 - the repair-round reset;
 - the recheck-failure and dispatch-error paths.
 
+## Pilot 9: adopter upgrade to alpha.14, v2 live
+
+Goal: retry Pilot 7's goal with `v0.1.0-alpha.14`: upgrade `saxton-network/site`'s vendored Workflow files and put its v2 page live, with the evidence clients proven at readiness. The full [records](https://github.com/saxton-network/site/tree/3d9c47b55d10efc8565f86a14038f0c201410964/agent-work/site-upgrade-14) are in `agent-work/site-upgrade-14/` in the site repository.
+
+What happened:
+
+- **Before the pilot.** A site `AGENTS.md` update (site PR #6) was merged through GitHub's merge API, so its commit carries the owner's account name and email (Pilot 8 finding 3). Merges into either repository's `main` since then have been local.
+- **Plan.** An independent plan review took two rounds. Round 1 raised five Mediums (checks with no named client, the coordinator handover, the job log in the `liveStateChanged` proof, the rollback live-page rule, and dropped records rules). Round 2 approved; its two optional items were applied before the owner approved revision 2. The owner chose to reword the site's "Git identity" rule: agents commit only as the mandated no-reply identity, check it before the first commit, and merge into `main` locally, never with GitHub's merge button or API.
+- **Upgrade and review.** The release ZIP matched its digest and its files matched the tag. Five vendored files changed and three stayed byte-identical; `ADOPTION.md` and `AGENTS.md` were updated. The scaffold review found no stale versions or SHAs (Pilot 8 finding 1). The implementation review (B), on a different model from the builder, passed with one Nit.
+- **Readiness.** It passed with the batch frozen. Every acceptance check had a proven primary client and fallback, and readiness recorded how each authenticates: `curl` goes through the session's proxy as the same account as the connection. The proxy also refuses `curl` API reads of repositories outside the session's scope, so one public-visibility check had no fallback, as the plan allowed.
+- **Live run.** After the plain-language preview, the owner approved one v2 dispatch and one conditional rollback, and confirmed availability. The recheck was read clean, then one dispatch was made. Run 38534046073 took 28 seconds.
+- **Acceptance PASS.** Every check passed on its first read with its primary client. The deploy log, the evidence Pilot 7 could not read, was read through the connection: `DEPLOY HEAD=` the source and `DEPLOY INDEX_SHA256=` the v2 hash. The live page returned v2's bytes about 20 seconds after the run completed, and `main` was unchanged. No rollback was needed.
+- **Records.** The coordinator's privacy scan caught a word that names a private repository in the readiness record, and a later commit reworded it. The independent records review (site PR #7) then found the owner's GitHub login in the same record, which the scan had not looked for, and asked for a smaller wording change in K. Both were fixed on the branch and the same reviewer passed it. With the owner's go-ahead, the PR landed by a local `--no-ff` merge under the no-reply identity and an asserted-literal push; the API showed it merged. A check after the merge found that five intermediate commits, now in `main`'s history, still contain the login, and one of them also contains the word. The final files are clean. Removing them would mean rewriting `main`, which needs the owner's decision.
+
+Findings and observations:
+
+1. **Account logins are names.** The privacy scan looked for people's names and emails but not the GitHub login of the account the session acts as, which appears in API responses. *Suggested action:* the records scan includes the session account's login.
+2. **A no-ff merge keeps every commit.** A slip fixed later in a PR still enters history when the PR lands by `--no-ff` merge. *Suggested action:* before landing, scan every commit's content in the PR, not only the final tree; if an intermediate commit fails, land a single new commit of the final tree under the no-reply identity instead.
+3. **Proxy scope.** The session's proxy refused `curl` API reads for the one repository outside the session's scope (HTTP 403), so that check had no fallback. *Suggested action:* readiness proves each fallback against the exact repository it will read, as this run did.
+
+Not exercised, because the run succeeded:
+
+- the fallback client and the re-read window;
+- `liveStateChanged`;
+- the rollback;
+- the repair round;
+- the recheck-failure and dispatch-error paths.
+
 ## Current maturity
 
-The repository-only path has passed a controlled pilot. The deployment path has run seven live workflows:
+The repository-only path has passed a controlled pilot. The deployment path has run eight live workflows:
 
 - Pilot 3: the success path, a GitHub prerelease;
 - Pilot 4: a rollback drill, with an owner-performed release and tag deletion;
 - Pilot 5: two in a first adopter project, the GitHub Pages success path and a Pages rollback drill (a coordinator redeploy of the previous commit);
 - Pilot 6: the success path again, `v0.1.0-alpha.13`, with the post-Pilot 5 rules;
 - Pilot 7: the first adopter upgrade, with failed acceptance and a verified coordinator rollback;
-- Pilot 8: the success path, `v0.1.0-alpha.14`, with proven evidence clients.
+- Pilot 8: the success path, `v0.1.0-alpha.14`, with proven evidence clients;
+- Pilot 9: the adopter upgrade retried on `v0.1.0-alpha.14`, with acceptance passing on first reads.
 
 Pilot 5 is the first adoption by a newcomer in another repository. It exercised the fixes for Pilot 4's findings: J stayed `GATED` after the failed attempt, and records landed after a verified rollback. The tag-only and draft rollback rows, run cancellation, frozen-batch invalidation and a refused retry have still not been exercised live; for the retry boundary, only the helper's `GATED` label was observed.
 
-The framework should still be treated as experimental: seven live workflows are not broad coverage, and Pilot 5's adoption findings show that the docs assume knowledge a newcomer does not have.
+The framework should still be treated as experimental: eight live workflows are not broad coverage, and Pilot 5's adoption findings show that the docs assume knowledge a newcomer does not have.
 
 The important pattern is deliberate: a pilot finding stops advancement, becomes a narrow validator/test repair, receives independent review, and only then is the same scenario retried.
